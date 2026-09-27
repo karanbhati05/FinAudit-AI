@@ -54,3 +54,7 @@ dist/
 powershell.cmd
 mvn.cmd
 powershell.exe
+**/powershell.cmd
+**/powershell.exe
+**/mvn.cmd
+

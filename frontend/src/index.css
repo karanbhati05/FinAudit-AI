@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  /* Strict type scale: 13 / 15 / 18 / 24 / 32 / 48px */
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.25rem;
+
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+
+  --text-subhead: 1.125rem;
+  --text-subhead--line-height: 1.625rem;
+
+  --text-title: 1.5rem;
+  --text-title--line-height: 2rem;
+
+  --text-headline: 2rem;
+  --text-headline--line-height: 2.5rem;
+
+  --text-display: 3rem;
+  --text-display--line-height: 3.5rem;
+}
+
+:root {
+  /* Neutral Palette (Light: off-white base, near-black text) */
+  --color-page: #fbfbfa;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f7f7f5;
+  --color-surface-subtle: #f2f2ef;
+  --color-border: #e6e6e2;
+  --color-border-strong: #d0d0c9;
+  --color-text-primary: #121316;
+  --color-text-secondary: #5e6068;
+  --color-text-muted: #8b8e98;
+
+  /* Accent: Cobalt */
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-subtle: #eff6ff;
+  --color-accent-border: #bfdbfe;
+  --color-accent-contrast: #ffffff;
+
+  /* Severity scale */
+  --color-sev-critical-bg: #fee2e2;
+  --color-sev-critical-text: #991b1b;
+  --color-sev-critical-border: #fecaca;
+
+  --color-sev-high-bg: #fef3c7;
+  --color-sev-high-text: #92400e;
+  --color-sev-high-border: #fde68a;
+
+  --color-sev-medium-bg: #f3f4f6;
+  --color-sev-medium-text: #374151;
+  --color-sev-medium-border: #e5e7eb;
+
+  --color-sev-low-bg: #f8fafc;
+  --color-sev-low-text: #64748b;
+  --color-sev-low-border: #e2e8f0;
+}
+
+.dark {
+  /* Neutral Palette (Dark: very dark near-black, near-white text) */
+  --color-page: #0d0e12;
+  --color-surface: #14161d;
+  --color-surface-hover: #1a1d26;
+  --color-surface-subtle: #1f232e;
+  --color-border: #232733;
+  --color-border-strong: #32384a;
+  --color-text-primary: #f0f1f4;
+  --color-text-secondary: #9ea2b0;
+  --color-text-muted: #646877;
+
+  /* Accent: Calibrated Cobalt for Dark */
+  --color-accent: #3b82f6;
+  --color-accent-hover: #60a5fa;
+  --color-accent-subtle: #172554;
+  --color-accent-border: #1e3a8a;
+  --color-accent-contrast: #ffffff;
+
+  /* Severity scale (Dark) */
+  --color-sev-critical-bg: #450a0a;
+  --color-sev-critical-text: #fca5a5;
+  --color-sev-critical-border: #7f1d1d;
+
+  --color-sev-high-bg: #451a03;
+  --color-sev-high-text: #fcd34d;
+  --color-sev-high-border: #78350f;
+
+  --color-sev-medium-bg: #1f2937;
+  --color-sev-medium-text: #d1d5db;
+  --color-sev-medium-border: #374151;
+
+  --color-sev-low-bg: #0f172a;
+  --color-sev-low-text: #94a3b8;
+  --color-sev-low-border: #1e293b;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-page);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+  transition: background-color 200ms ease-out, color 200ms ease-out;
+}
+
+/* Custom design system utility bindings */
+.bg-page { background-color: var(--color-page); }
+.bg-surface { background-color: var(--color-surface); }
+.bg-surface-hover { background-color: var(--color-surface-hover); }
+.bg-surface-subtle { background-color: var(--color-surface-subtle); }
+
+.border-subtle { border-color: var(--color-border); }
+.border-strong { border-color: var(--color-border-strong); }
+
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-muted { color: var(--color-text-muted); }
+
+.bg-accent { background-color: var(--color-accent); }
+.bg-accent-hover:hover { background-color: var(--color-accent-hover); }
+.bg-accent-subtle { background-color: var(--color-accent-subtle); }
+.text-accent { color: var(--color-accent); }
+.border-accent { border-color: var(--color-accent); }
+.border-accent-border { border-color: var(--color-accent-border); }
+
+/* Typography helper classes matching strict scale */
+.text-display { font-size: var(--text-display); line-height: var(--text-display--line-height); letter-spacing: -0.035em; font-weight: 700; }
+.text-headline { font-size: var(--text-headline); line-height: var(--text-headline--line-height); letter-spacing: -0.025em; font-weight: 600; }
+.text-title { font-size: var(--text-title); line-height: var(--text-title--line-height); letter-spacing: -0.02em; font-weight: 600; }
+.text-subhead { font-size: var(--text-subhead); line-height: var(--text-subhead--line-height); letter-spacing: -0.01em; font-weight: 500; }
+.text-body { font-size: var(--text-body); line-height: var(--text-body--line-height); font-weight: 400; }
+.text-caption { font-size: var(--text-caption); line-height: var(--text-caption--line-height); font-weight: 400; }
+
+/* Calm skeleton shimmer */
+@keyframes shimmer {
+  0% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+  100% { opacity: 0.45; }
+}
+.animate-shimmer {
+  animation: shimmer 1.8s ease-in-out infinite;
+}
