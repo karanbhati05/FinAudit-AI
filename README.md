@@ -1,6 +1,6 @@
 # FinAudit-AI — Autonomous Financial Audit Copilot
 
-[![CI/CD Pipeline](https://github.com/OWNER/finaudit/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/finaudit/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/karanbhati05/FinAudit-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/karanbhati05/FinAudit-AI/actions/workflows/ci.yml)
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1.8-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
@@ -163,7 +163,7 @@ sequenceDiagram
 
 ### 1. Clone & Set Environment Variables
 ```bash
-git clone https://github.com/OWNER/finaudit.git
+git clone https://github.com/karanbhati05/FinAudit-AI.git
 cd finaudit
 
 # Linux / macOS
