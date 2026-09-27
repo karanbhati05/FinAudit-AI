@@ -14,6 +14,7 @@ public class VectorStoreConfig {
     public static final String VECTOR_TABLE_NAME = "compliance_policy_embeddings";
 
     @Bean
+    @org.springframework.context.annotation.Primary
     public VectorStore vectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel embeddingModel) {
         return PgVectorStore.builder(jdbcTemplate, embeddingModel)
                 .dimensions(EMBEDDING_DIMENSIONS)

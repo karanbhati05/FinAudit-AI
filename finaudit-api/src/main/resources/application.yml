@@ -1,6 +1,8 @@
 spring:
   application:
     name: finaudit-api
+  main:
+    allow-bean-definition-overriding: true
   profiles:
     default: local
   threads:
