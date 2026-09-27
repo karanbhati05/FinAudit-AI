@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { UploadPage } from './pages/UploadPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ReportDetailPage } from './pages/ReportDetailPage';
 
 export const App: React.FC = () => {
   return (
@@ -24,6 +25,7 @@ export const App: React.FC = () => {
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/upload" element={<UploadPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/reports/:id" element={<ReportDetailPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
