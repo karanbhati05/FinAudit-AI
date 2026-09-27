@@ -53,7 +53,28 @@ The application will be accessible at:
 - **Swagger / OpenAPI Documentation**: `http://localhost:8080/swagger-ui.html`
 - **Actuator Health Check**: `http://localhost:8080/actuator/health`
 
+### 5. Run the Frontend (React + Vite + TypeScript)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend interface will be available at `http://localhost:5173`.
+
+#### Frontend Configuration & Proxy
+- **Development Proxy**: Vite is configured with a built-in proxy forwarding all `/api` calls to `http://localhost:8080`.
+- **Custom Backend URL**: You can set `VITE_API_URL` to point to an external or deployed backend:
+  ```bash
+  export VITE_API_URL="http://localhost:8080/api"
+  npm run dev
+  ```
+- **Design System & Aesthetics**: Restrained, modern AI aesthetic inspired by Anthropic and OpenAI. Features off-white/near-black neutral base, cobalt accent, Geist font family, 8px-based spacing scale, and an accent+neutral severity scale for findings.
+- **In-Memory JWT Storage**: Following enterprise security best practices, JWT tokens are kept in memory and attached via Axios request interceptors (never persisted in `localStorage`).
+
 ---
 
 ## License
 MIT
+
