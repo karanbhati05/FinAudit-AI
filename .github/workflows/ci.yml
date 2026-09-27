@@ -1,15 +1,47 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_integration_tests:
+        description: 'Run real Gemini-calling integration tests (consumes API credits)'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Nightly run at 02:00 UTC for automated integration testing
+    - cron: '0 2 * * *'
 
 jobs:
-  build:
-    name: Build & Verify
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
+
+    # Service Container Selection Rationale:
+    # We choose a GitHub Actions service container with pgvector/pgvector:pg16 instead of
+    # relying solely on Testcontainers inside the CI runner for regular PR/push builds.
+    # 1. Reliability: Service containers avoid Docker-in-Docker socket permission issues on diverse runners.
+    # 2. Performance: Pre-initialized PostgreSQL + pgvector eliminates repetitive container startup overhead
+    #    per test class, reducing pipeline run times significantly.
+    # 3. Determinism: Ensures identical PostgreSQL 16 + pgvector version matching production.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: finaudit
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout Code
@@ -22,5 +54,88 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Verify with Maven
-        run: mvn -B verify
+      - name: Run Backend Tests & JaCoCo Coverage Gate
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/finaudit
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-dummy-key' }}
+        run: |
+          mvn -B verify
+
+      - name: Run Gemini Integration Tests (Nightly / Manual Dispatch Only)
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_integration_tests == true) }}
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/finaudit
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          mvn -B test-compile surefire:test -Pintegration
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Build Frontend Application
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  docker-build:
+    name: Docker Build & Push to GHCR
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute Lowercase Image Names
+        id: img_names
+        run: |
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "api_image=ghcr.io/${REPO_OWNER_LOWER}/finaudit-api" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=ghcr.io/${REPO_OWNER_LOWER}/finaudit-frontend" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Push finaudit-api Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: finaudit-api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img_names.outputs.api_image }}:latest
+            ${{ steps.img_names.outputs.api_image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.img_names.outputs.frontend_image }}:latest
+            ${{ steps.img_names.outputs.frontend_image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
