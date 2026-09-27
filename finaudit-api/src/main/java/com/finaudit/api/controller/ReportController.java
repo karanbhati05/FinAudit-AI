@@ -24,8 +24,14 @@ import com.finaudit.api.entity.AuditFinding;
 import com.finaudit.api.entity.AuditRun;
 import com.finaudit.api.repository.AuditFindingRepository;
 import com.finaudit.api.repository.AuditRunRepository;
-import com.finaudit.core.model.AuditFindingResponse;
-import com.finaudit.core.model.AuditReportResponse;
+import com.finaudit.api.repository.ReportSpecifications;
+import com.finaudit.api.service.ReportQueryService;
+import com.finaudit.core.model.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -39,6 +45,7 @@ public class ReportController {
     private final ReportParsingService reportParsingService;
     private final AuditRunRepository auditRunRepository;
     private final AuditFindingRepository auditFindingRepository;
+    private final ReportQueryService reportQueryService;
 
     public ReportController(
             ReportRepository reportRepository,
@@ -46,7 +53,8 @@ public class ReportController {
             StorageService storageService,
             ReportParsingService reportParsingService,
             AuditRunRepository auditRunRepository,
-            AuditFindingRepository auditFindingRepository
+            AuditFindingRepository auditFindingRepository,
+            ReportQueryService reportQueryService
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
@@ -54,6 +62,7 @@ public class ReportController {
         this.reportParsingService = reportParsingService;
         this.auditRunRepository = auditRunRepository;
         this.auditFindingRepository = auditFindingRepository;
+        this.reportQueryService = reportQueryService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -148,5 +157,31 @@ public class ReportController {
                 run.getRawModelOutputJson(),
                 findingResponses
         ));
+    }
+
+    @GetMapping
+    @Operation(summary = "List paginated reports", description = "Query reports with pagination, sorting, and filters (status, riskLevel, date range)")
+    public ResponseEntity<Page<ReportSummaryDto>> listReports(
+            @RequestParam(value = "status", required = false) ReportStatus status,
+            @RequestParam(value = "riskLevel", required = false) RiskLevel riskLevel,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            @org.springdoc.core.annotations.ParameterObject Pageable pageable
+    ) {
+        Specification<Report> spec = Specification.where(ReportSpecifications.withStatus(status))
+                .and(ReportSpecifications.withRiskLevel(riskLevel))
+                .and(ReportSpecifications.withUploadedBetween(startDate, endDate))
+                .and(ReportSpecifications.withOwnerId(ownerId));
+
+        return ResponseEntity.ok(reportQueryService.getReports(spec, pageable));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get complete report details", description = "Returns full detail of report, line items, audit run, and findings with resolved policy text")
+    public ResponseEntity<ReportDetailResponse> getReportDetail(@PathVariable("id") Long id) {
+        return reportQueryService.getReportDetail(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
