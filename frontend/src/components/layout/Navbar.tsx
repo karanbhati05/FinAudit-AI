@@ -1,21 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { Sun, Moon, ShieldCheck } from 'lucide-react';
 
-interface NavbarProps {
-  isAuthenticated?: boolean;
-  onLogout?: () => void;
-  userEmail?: string;
-}
-
-export const Navbar: React.FC<NavbarProps> = ({
-  isAuthenticated = false,
-  onLogout,
-  userEmail,
-}) => {
+export const Navbar: React.FC = () => {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -79,9 +71,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <span className="hidden sm:inline text-caption text-secondary font-mono">
-                {userEmail}
+                {user?.email}
               </span>
-              <Button variant="secondary" size="sm" onClick={onLogout}>
+              <Button variant="secondary" size="sm" onClick={logout}>
                 Sign Out
               </Button>
             </div>
