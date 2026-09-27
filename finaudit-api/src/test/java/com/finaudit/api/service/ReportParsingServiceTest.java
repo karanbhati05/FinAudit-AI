@@ -118,4 +118,50 @@ class ReportParsingServiceTest {
         assertThat(report.getErrorReason()).contains("Corrupted PDF file");
         verify(lineItemRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should transition report to FAILED when Gemini structured output throws malformed JSON exception")
+    void shouldHandleMalformedJsonFromGemini() throws Exception {
+        Report report = new Report(3L, "malformed.pdf", "storage/reports/3/malformed.pdf");
+        report.setId(3L);
+        report.setStatus(ReportStatus.UPLOADED);
+
+        when(reportRepository.findById(3L)).thenReturn(Optional.of(report));
+        when(documentExtractor.extractText(any(Path.class))).thenReturn("Some raw document text");
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system(anyString())).thenReturn(requestSpec);
+        doReturn(requestSpec).when(requestSpec).user(any(Consumer.class));
+        when(requestSpec.call()).thenReturn(callSpec);
+        when(callSpec.entity(ExtractedLineItemsList.class)).thenThrow(new RuntimeException("Malformed JSON from LLM"));
+
+        reportParsingService.parseReportAsync(3L).join();
+
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.FAILED);
+        assertThat(report.getErrorReason()).contains("Malformed JSON from LLM");
+        verify(lineItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should transition report to FAILED when no line items are extracted by model")
+    void shouldHandleNoLineItemsExtracted() throws Exception {
+        Report report = new Report(4L, "empty.pdf", "storage/reports/4/empty.pdf");
+        report.setId(4L);
+        report.setStatus(ReportStatus.UPLOADED);
+
+        when(reportRepository.findById(4L)).thenReturn(Optional.of(report));
+        when(documentExtractor.extractText(any(Path.class))).thenReturn("Non-financial plain text without any receipts");
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.system(anyString())).thenReturn(requestSpec);
+        doReturn(requestSpec).when(requestSpec).user(any(Consumer.class));
+        when(requestSpec.call()).thenReturn(callSpec);
+        when(callSpec.entity(ExtractedLineItemsList.class)).thenReturn(new ExtractedLineItemsList(List.of()));
+
+        reportParsingService.parseReportAsync(4L).join();
+
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.FAILED);
+        assertThat(report.getErrorReason()).contains("No line items could be extracted");
+        verify(lineItemRepository, never()).save(any());
+    }
 }

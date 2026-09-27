@@ -116,6 +116,9 @@ public class ReportParsingService {
                     .entity(ExtractedLineItemsList.class);
 
             List<ExtractedLineItem> items = extractedData != null ? extractedData.items() : List.of();
+            if (items.isEmpty()) {
+                throw new IllegalStateException("No line items could be extracted from document.");
+            }
 
             // 3. Persist line items
             int lineNumber = 1;
