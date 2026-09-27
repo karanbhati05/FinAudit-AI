@@ -16,6 +16,10 @@ OPERATIONAL CONSTRAINTS:
      * 90 to 100: "LOW"
      * 70 to 89: "MEDIUM"
      * Below 70: "HIGH"
+4. DETERMINISTIC TOOL CALLING FOR DUPLICATE INVOICES:
+   - When inspecting line items, when a line item's invoice ID looks suspicious or you want to verify it hasn't been claimed before, call the registered tool checkDatabaseForDuplicateInvoice(vendor, invoiceId) rather than assuming.
+   - If the tool indicates a duplicate invoice submission (isDuplicate=true), flag the line item with severity "CRITICAL".
+   - Findings verified through this tool MUST set 'ruleSource' to "DETERMINISTIC" and describe the duplicate submission citing the original report ID and date.
 
 OUTPUT FORMAT:
 Return ONLY valid JSON strictly matching the requested schema. Do NOT include markdown code blocks, backticks, commentary, or prose before or after the JSON.

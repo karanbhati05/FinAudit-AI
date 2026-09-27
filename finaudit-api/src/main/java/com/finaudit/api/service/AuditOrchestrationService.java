@@ -20,6 +20,8 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.finaudit.api.tool.DuplicateInvoiceDetectionTool;
+
 @Service
 public class AuditOrchestrationService {
 
@@ -31,6 +33,7 @@ public class AuditOrchestrationService {
     private final AuditPromptService auditPromptService;
     private final AuditRunRepository auditRunRepository;
     private final AuditFindingRepository auditFindingRepository;
+    private final DuplicateInvoiceDetectionTool duplicateInvoiceTool;
     private final ChatClient chatClient;
 
     public AuditOrchestrationService(
@@ -40,6 +43,7 @@ public class AuditOrchestrationService {
             AuditPromptService auditPromptService,
             AuditRunRepository auditRunRepository,
             AuditFindingRepository auditFindingRepository,
+            DuplicateInvoiceDetectionTool duplicateInvoiceTool,
             ChatClient.Builder chatClientBuilder
     ) {
         this.reportRepository = reportRepository;
@@ -48,6 +52,7 @@ public class AuditOrchestrationService {
         this.auditPromptService = auditPromptService;
         this.auditRunRepository = auditRunRepository;
         this.auditFindingRepository = auditFindingRepository;
+        this.duplicateInvoiceTool = duplicateInvoiceTool;
         this.chatClient = chatClientBuilder.build();
     }
 
@@ -59,6 +64,7 @@ public class AuditOrchestrationService {
             AuditPromptService auditPromptService,
             AuditRunRepository auditRunRepository,
             AuditFindingRepository auditFindingRepository,
+            DuplicateInvoiceDetectionTool duplicateInvoiceTool,
             ChatClient chatClient
     ) {
         this.reportRepository = reportRepository;
@@ -67,7 +73,20 @@ public class AuditOrchestrationService {
         this.auditPromptService = auditPromptService;
         this.auditRunRepository = auditRunRepository;
         this.auditFindingRepository = auditFindingRepository;
+        this.duplicateInvoiceTool = duplicateInvoiceTool;
         this.chatClient = chatClient;
+    }
+
+    public AuditOrchestrationService(
+            ReportRepository reportRepository,
+            ReportLineItemRepository lineItemRepository,
+            PolicySearchService policySearchService,
+            AuditPromptService auditPromptService,
+            AuditRunRepository auditRunRepository,
+            AuditFindingRepository auditFindingRepository,
+            ChatClient chatClient
+    ) {
+        this(reportRepository, lineItemRepository, policySearchService, auditPromptService, auditRunRepository, auditFindingRepository, null, chatClient);
     }
 
     @Transactional
@@ -147,11 +166,26 @@ public class AuditOrchestrationService {
         String userPrompt = policyContextBuilder + "\n\n" + lineItemsBuilder;
 
         log.debug("Sending audit prompt to ChatClient for report ID: {}", reportId);
-        String rawResponse = chatClient.prompt()
-                .system(systemPrompt)
-                .user(userPrompt)
-                .call()
-                .content();
+        if (duplicateInvoiceTool != null) {
+            duplicateInvoiceTool.setCurrentReportId(reportId);
+        }
+
+        String rawResponse;
+        try {
+            var promptSpec = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt);
+
+            if (duplicateInvoiceTool != null) {
+                promptSpec = promptSpec.tools(duplicateInvoiceTool);
+            }
+
+            rawResponse = promptSpec.call().content();
+        } finally {
+            if (duplicateInvoiceTool != null) {
+                duplicateInvoiceTool.clearCurrentReportId();
+            }
+        }
 
         // --- Step 4: Parse Structured Output ---
         AuditReportResult auditResult = auditPromptService.parseResponse(rawResponse);
