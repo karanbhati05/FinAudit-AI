@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS reports (
     storage_path VARCHAR(1024) NOT NULL,
     status VARCHAR(50) NOT NULL,
     uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    audited_at TIMESTAMP WITH TIME ZONE
+    audited_at TIMESTAMP WITH TIME ZONE,
+    error_reason TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_reports_owner_id ON reports(owner_id);

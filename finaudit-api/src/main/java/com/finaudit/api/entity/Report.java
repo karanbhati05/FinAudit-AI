@@ -32,6 +32,9 @@ public class Report {
     @Column(name = "audited_at")
     private Instant auditedAt;
 
+    @Column(name = "error_reason", columnDefinition = "TEXT")
+    private String errorReason;
+
     public Report() {}
 
     public Report(Long ownerId, String originalFilename, String storagePath) {
@@ -96,6 +99,14 @@ public class Report {
 
     public void setAuditedAt(Instant auditedAt) {
         this.auditedAt = auditedAt;
+    }
+
+    public String getErrorReason() {
+        return errorReason;
+    }
+
+    public void setErrorReason(String errorReason) {
+        this.errorReason = errorReason;
     }
 
     @Override
