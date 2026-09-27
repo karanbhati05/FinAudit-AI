@@ -40,6 +40,15 @@ public class ReportQueryService {
 
     @Transactional(readOnly = true)
     public Page<ReportSummaryDto> getReports(Specification<Report> spec, Pageable pageable) {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.finaudit.api.security.UserPrincipal principal) {
+            if (principal.getRole() == UserRole.VIEWER) {
+                spec = spec == null
+                        ? ReportSpecifications.withOwnerId(principal.getId())
+                        : spec.and(ReportSpecifications.withOwnerId(principal.getId()));
+            }
+        }
+
         Page<Report> reportsPage = reportRepository.findAll(spec, pageable);
 
         return reportsPage.map(report -> {
@@ -65,6 +74,17 @@ public class ReportQueryService {
         Report report = reportRepository.findById(reportId).orElse(null);
         if (report == null) {
             return Optional.empty();
+        }
+
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.finaudit.api.security.UserPrincipal principal) {
+            if (principal.getRole() == UserRole.VIEWER) {
+                if (report.getOwnerId() != null && !report.getOwnerId().equals(principal.getId())) {
+                    throw new org.springframework.security.access.AccessDeniedException(
+                            "Access denied: Viewers can only view reports where they are the owner or participant."
+                    );
+                }
+            }
         }
 
         List<ReportLineItem> lineItems = lineItemRepository.findByReportId(reportId);
