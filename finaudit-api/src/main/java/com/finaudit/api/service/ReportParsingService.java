@@ -30,19 +30,22 @@ public class ReportParsingService {
     private final StorageService storageService;
     private final DocumentExtractor documentExtractor;
     private final ChatClient chatClient;
+    private final AuditOrchestrationService auditOrchestrationService;
 
     public ReportParsingService(
             ReportRepository reportRepository,
             ReportLineItemRepository lineItemRepository,
             StorageService storageService,
             DocumentExtractor documentExtractor,
-            ChatClient.Builder chatClientBuilder
+            ChatClient.Builder chatClientBuilder,
+            @org.springframework.context.annotation.Lazy AuditOrchestrationService auditOrchestrationService
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
         this.storageService = storageService;
         this.documentExtractor = documentExtractor;
         this.chatClient = chatClientBuilder.build();
+        this.auditOrchestrationService = auditOrchestrationService;
     }
 
     // Constructor for testing with pre-built ChatClient
@@ -53,11 +56,23 @@ public class ReportParsingService {
             DocumentExtractor documentExtractor,
             ChatClient chatClient
     ) {
+        this(reportRepository, lineItemRepository, storageService, documentExtractor, chatClient, null);
+    }
+
+    public ReportParsingService(
+            ReportRepository reportRepository,
+            ReportLineItemRepository lineItemRepository,
+            StorageService storageService,
+            DocumentExtractor documentExtractor,
+            ChatClient chatClient,
+            AuditOrchestrationService auditOrchestrationService
+    ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
         this.storageService = storageService;
         this.documentExtractor = documentExtractor;
         this.chatClient = chatClient;
+        this.auditOrchestrationService = auditOrchestrationService;
     }
 
     @Async
@@ -122,6 +137,12 @@ public class ReportParsingService {
             report.setStatus(ReportStatus.AUDITING);
             reportRepository.save(report);
             log.info("Completed parsing report ID: {}. Extracted {} line items.", reportId, items.size());
+
+            // 5. Automatically trigger runAudit as the next step in the async pipeline
+            if (auditOrchestrationService != null) {
+                log.info("Automatically launching RAG audit for report ID: {}", reportId);
+                auditOrchestrationService.runAudit(reportId);
+            }
 
         } catch (Exception e) {
             log.error("Failed to parse report ID: {}", reportId, e);

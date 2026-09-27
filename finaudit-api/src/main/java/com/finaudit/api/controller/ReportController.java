@@ -20,6 +20,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import com.finaudit.api.entity.AuditFinding;
+import com.finaudit.api.entity.AuditRun;
+import com.finaudit.api.repository.AuditFindingRepository;
+import com.finaudit.api.repository.AuditRunRepository;
+import com.finaudit.core.model.AuditFindingResponse;
+import com.finaudit.core.model.AuditReportResponse;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/reports")
 @Tag(name = "Reports", description = "Financial Report ingestion, parsing status, and auditing")
@@ -29,17 +37,23 @@ public class ReportController {
     private final ReportLineItemRepository lineItemRepository;
     private final StorageService storageService;
     private final ReportParsingService reportParsingService;
+    private final AuditRunRepository auditRunRepository;
+    private final AuditFindingRepository auditFindingRepository;
 
     public ReportController(
             ReportRepository reportRepository,
             ReportLineItemRepository lineItemRepository,
             StorageService storageService,
-            ReportParsingService reportParsingService
+            ReportParsingService reportParsingService,
+            AuditRunRepository auditRunRepository,
+            AuditFindingRepository auditFindingRepository
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
         this.storageService = storageService;
         this.reportParsingService = reportParsingService;
+        this.auditRunRepository = auditRunRepository;
+        this.auditFindingRepository = auditFindingRepository;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -96,6 +110,43 @@ public class ReportController {
                 report.getStatus(),
                 count,
                 report.getErrorReason()
+        ));
+    }
+
+    @GetMapping("/{id}/audit")
+    @Operation(summary = "Get audit run and findings", description = "Returns the compliance score, risk level, and all policy findings for the report")
+    public ResponseEntity<AuditReportResponse> getReportAudit(@PathVariable("id") Long id) {
+        Report report = reportRepository.findById(id).orElse(null);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        AuditRun run = auditRunRepository.findByReportId(id).orElse(null);
+        if (run == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        List<AuditFinding> findings = auditFindingRepository.findByReportId(id);
+        List<AuditFindingResponse> findingResponses = findings.stream()
+                .map(f -> new AuditFindingResponse(
+                        f.getId(),
+                        f.getLineItemId(),
+                        f.getRuleSource(),
+                        f.getSeverity(),
+                        f.getDescription(),
+                        f.getPolicyReference(),
+                        f.getCreatedAt()
+                ))
+                .toList();
+
+        return ResponseEntity.ok(new AuditReportResponse(
+                id,
+                run.getComplianceScore(),
+                run.getRiskLevel(),
+                run.getStartedAt(),
+                run.getCompletedAt(),
+                run.getRawModelOutputJson(),
+                findingResponses
         ));
     }
 }
