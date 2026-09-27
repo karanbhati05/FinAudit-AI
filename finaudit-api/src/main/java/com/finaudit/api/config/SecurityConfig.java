@@ -97,7 +97,10 @@ public class SecurityConfig {
                 "http://127.0.0.1:5173",
                 "http://localhost:3000",
                 "https://*.railway.app",
-                "https://*.render.com"
+                "https://*.render.com",
+                "https://*.vercel.app",
+                "https://*.pages.dev",
+                "https://*.netlify.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));

@@ -1,0 +1,50 @@
+# Render Blueprint Specification for FinAudit-AI
+# Automated zero-config deployment of PostgreSQL (with pgvector), Spring Boot backend, and React static frontend.
+services:
+  # 1. Backend Service (Spring Boot 3.4 + Java 21 Virtual Threads)
+  - type: web
+    name: finaudit-api
+    runtime: docker
+    dockerfilePath: ./finaudit-api/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: oregon
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: finaudit-db
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+
+  # 2. Frontend Interface (React + Vite + TypeScript)
+  - type: web
+    name: finaudit-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: finaudit-api
+          property: host
+
+databases:
+  # 3. PostgreSQL 16 with native pgvector extension
+  - name: finaudit-db
+    databaseName: finaudit
+    user: postgres
+    plan: starter
+    region: oregon
+    postgresMajorVersion: 16
