@@ -32,6 +32,7 @@ public class ReportParsingService {
     private final ChatClient chatClient;
     private final AuditOrchestrationService auditOrchestrationService;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ReportParsingService(
             ReportRepository reportRepository,
             ReportLineItemRepository lineItemRepository,

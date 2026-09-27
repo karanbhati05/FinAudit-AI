@@ -36,6 +36,7 @@ public class AuditOrchestrationService {
     private final DuplicateInvoiceDetectionTool duplicateInvoiceTool;
     private final ChatClient chatClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuditOrchestrationService(
             ReportRepository reportRepository,
             ReportLineItemRepository lineItemRepository,

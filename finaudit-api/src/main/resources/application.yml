@@ -17,6 +17,7 @@ spring:
           options:
             model: gemini-2.5-flash
         embedding:
+          api-key: ${GEMINI_API_KEY:}
           model: text-embedding-004
           options:
             model: text-embedding-004
@@ -38,7 +39,7 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:finaudit}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5434}/${DB_NAME:finaudit}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
