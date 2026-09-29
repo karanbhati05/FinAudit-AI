@@ -3,6 +3,7 @@ package com.finaudit.api.controller;
 import com.finaudit.api.entity.Report;
 import com.finaudit.api.repository.ReportLineItemRepository;
 import com.finaudit.api.repository.ReportRepository;
+import com.finaudit.api.service.CostGuardrailService;
 import com.finaudit.api.service.ReportParsingService;
 import com.finaudit.api.storage.StorageService;
 import com.finaudit.core.model.ReportStatus;
@@ -46,6 +47,7 @@ public class ReportController {
     private final AuditRunRepository auditRunRepository;
     private final AuditFindingRepository auditFindingRepository;
     private final ReportQueryService reportQueryService;
+    private final CostGuardrailService costGuardrailService;
 
     public ReportController(
             ReportRepository reportRepository,
@@ -54,7 +56,8 @@ public class ReportController {
             ReportParsingService reportParsingService,
             AuditRunRepository auditRunRepository,
             AuditFindingRepository auditFindingRepository,
-            ReportQueryService reportQueryService
+            ReportQueryService reportQueryService,
+            CostGuardrailService costGuardrailService
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
@@ -63,6 +66,7 @@ public class ReportController {
         this.auditRunRepository = auditRunRepository;
         this.auditFindingRepository = auditFindingRepository;
         this.reportQueryService = reportQueryService;
+        this.costGuardrailService = costGuardrailService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -70,10 +74,20 @@ public class ReportController {
     @ApiResponse(responseCode = "202", description = "Report uploaded and parsing initiated")
     public ResponseEntity<ReportUploadResponse> uploadReport(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(value = "ownerId", required = false) Long ownerId
+            @RequestParam(value = "ownerId", required = false) Long ownerId,
+            jakarta.servlet.http.HttpServletRequest request,
+            java.security.Principal principal
     ) throws IOException {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body(new ReportUploadResponse(null, "Uploaded file must not be empty."));
+        // 1. Guardrail validation: file size, extension, magic bytes (PDF %PDF- / clean text)
+        if (costGuardrailService != null) {
+            costGuardrailService.validateUploadFile(file);
+        }
+
+        // 2. Guardrail rate limiting: max 5/user/day, max 10/IP/day, max 100 Gemini calls circuit breaker
+        String clientIp = extractClientIp(request);
+        String userIdentifier = principal != null ? principal.getName() : (ownerId != null ? "user-" + ownerId : clientIp);
+        if (costGuardrailService != null) {
+            costGuardrailService.enforceUploadRateLimits(userIdentifier, clientIp);
         }
 
         String originalFilename = file.getOriginalFilename();
@@ -81,26 +95,53 @@ public class ReportController {
             originalFilename = "uploaded_report.pdf";
         }
 
-        String lower = originalFilename.toLowerCase();
-        if (!lower.endsWith(".pdf") && !lower.endsWith(".txt") && !lower.endsWith(".csv")) {
-            return ResponseEntity.badRequest().body(new ReportUploadResponse(null, "Only PDF and plain text (.txt, .csv) files are supported."));
-        }
-
-        // 1. Initial entity save to generate report ID
+        // 3. Initial entity save to generate report ID
         Report report = new Report(ownerId, originalFilename, "pending");
         report = reportRepository.save(report);
 
-        // 2. Save physical file to storage/reports/{reportId}/
+        // 4. Save physical file to storage/reports/{reportId}/
         Path storedPath = storageService.store(report.getId(), originalFilename, file.getInputStream());
         report.setStoragePath(storedPath.toString());
         report.setStatus(ReportStatus.UPLOADED);
         reportRepository.save(report);
 
-        // 3. Trigger asynchronous parsing on virtual threads
+        // 5. Track successful upload count towards daily limits
+        if (costGuardrailService != null) {
+            costGuardrailService.recordUpload(userIdentifier, clientIp);
+        }
+
+        // 6. Trigger asynchronous parsing on virtual threads
         reportParsingService.parseReportAsync(report.getId());
 
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new ReportUploadResponse(report.getId(), "Report uploaded successfully. Parsing in progress."));
+    }
+
+    @PostMapping("/{id}/retry")
+    @Operation(summary = "Retry a failed report audit", description = "Re-initiates the parsing and audit pipeline for a failed report")
+    public ResponseEntity<ReportStatusResponse> retryReportAudit(@PathVariable("id") Long id) {
+        Report report = reportRepository.findById(id).orElse(null);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+        report.setStatus(ReportStatus.UPLOADED);
+        report.setErrorReason(null);
+        reportRepository.save(report);
+        reportParsingService.parseReportAsync(id);
+        return ResponseEntity.ok(new ReportStatusResponse(id, ReportStatus.UPLOADED, 0, null));
+    }
+
+    private String extractClientIp(jakarta.servlet.http.HttpServletRequest request) {
+        if (request == null) return "127.0.0.1";
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank() && !"unknown".equalsIgnoreCase(xForwardedFor)) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isBlank() && !"unknown".equalsIgnoreCase(xRealIp)) {
+            return xRealIp.trim();
+        }
+        return request.getRemoteAddr() != null ? request.getRemoteAddr() : "127.0.0.1";
     }
 
     @GetMapping("/{id}/status")

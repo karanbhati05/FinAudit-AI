@@ -81,6 +81,9 @@ class SecurityRbacTest {
     @MockitoBean
     private ReportQueryService reportQueryService;
 
+    @MockitoBean
+    private com.finaudit.api.service.CostGuardrailService costGuardrailService;
+
     @Test
     @DisplayName("Unauthenticated request to protected endpoint /api/reports/1 should return 401 Unauthorized")
     void unauthenticatedRequestShouldReturn401() throws Exception {

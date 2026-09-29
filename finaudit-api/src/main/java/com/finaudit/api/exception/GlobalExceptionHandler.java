@@ -100,6 +100,57 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitException(
+            RateLimitExceededException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Rate limit triggered on {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Too Many Requests",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
+
+    @ExceptionHandler(CapacityExceededException.class)
+    public ResponseEntity<ErrorResponse> handleCapacityException(
+            CapacityExceededException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Concurrency capacity reached on {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Too Many Requests",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
+
+    @ExceptionHandler(CircuitBreakerOpenException.class)
+    public ResponseEntity<ErrorResponse> handleCircuitBreakerException(
+            CircuitBreakerOpenException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Circuit breaker open on {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Daily Quota Exceeded",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
             IllegalArgumentException ex,

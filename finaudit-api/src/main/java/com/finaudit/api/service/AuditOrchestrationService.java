@@ -35,6 +35,7 @@ public class AuditOrchestrationService {
     private final AuditFindingRepository auditFindingRepository;
     private final DuplicateInvoiceDetectionTool duplicateInvoiceTool;
     private final ChatClient chatClient;
+    private final CostGuardrailService costGuardrailService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AuditOrchestrationService(
@@ -45,7 +46,8 @@ public class AuditOrchestrationService {
             AuditRunRepository auditRunRepository,
             AuditFindingRepository auditFindingRepository,
             DuplicateInvoiceDetectionTool duplicateInvoiceTool,
-            ChatClient.Builder chatClientBuilder
+            ChatClient.Builder chatClientBuilder,
+            CostGuardrailService costGuardrailService
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
@@ -55,6 +57,7 @@ public class AuditOrchestrationService {
         this.auditFindingRepository = auditFindingRepository;
         this.duplicateInvoiceTool = duplicateInvoiceTool;
         this.chatClient = chatClientBuilder.build();
+        this.costGuardrailService = costGuardrailService;
     }
 
     // Constructor for unit tests with pre-built ChatClient
@@ -76,6 +79,7 @@ public class AuditOrchestrationService {
         this.auditFindingRepository = auditFindingRepository;
         this.duplicateInvoiceTool = duplicateInvoiceTool;
         this.chatClient = chatClient;
+        this.costGuardrailService = null;
     }
 
     public AuditOrchestrationService(
@@ -171,8 +175,16 @@ public class AuditOrchestrationService {
             duplicateInvoiceTool.setCurrentReportId(reportId);
         }
 
+        if (costGuardrailService != null) {
+            costGuardrailService.tryAcquireAuditSlot();
+        }
+
         String rawResponse;
         try {
+            if (costGuardrailService != null) {
+                costGuardrailService.recordGeminiCall();
+            }
+
             var promptSpec = chatClient.prompt()
                     .system(systemPrompt)
                     .user(userPrompt);
@@ -185,6 +197,9 @@ public class AuditOrchestrationService {
         } finally {
             if (duplicateInvoiceTool != null) {
                 duplicateInvoiceTool.clearCurrentReportId();
+            }
+            if (costGuardrailService != null) {
+                costGuardrailService.releaseAuditSlot();
             }
         }
 

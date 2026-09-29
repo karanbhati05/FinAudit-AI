@@ -58,6 +58,9 @@ class ReportControllerTest {
     @MockitoBean
     private ReportQueryService reportQueryService;
 
+    @MockitoBean
+    private com.finaudit.api.service.CostGuardrailService costGuardrailService;
+
     @Test
     @DisplayName("GET /api/reports should handle pagination edge case: empty result")
     void shouldHandleEmptyPageResult() throws Exception {
