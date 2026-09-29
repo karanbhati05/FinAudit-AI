@@ -42,7 +42,6 @@ databases:
   # 2. PostgreSQL 16 with native pgvector extension
   - name: finaudit-db
     databaseName: finaudit
-    user: postgres
     plan: free
     region: singapore
     postgresMajorVersion: "16"
