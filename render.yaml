@@ -1,5 +1,5 @@
 # Render Blueprint Specification for FinAudit-AI
-# Automated zero-config deployment of PostgreSQL (with pgvector), Spring Boot backend, and React static frontend.
+# Automated zero-config deployment of PostgreSQL (with pgvector) and Spring Boot backend.
 services:
   # 1. Backend Service (Spring Boot 3.4 + Java 21 Virtual Threads)
   - type: web
@@ -7,44 +7,42 @@ services:
     runtime: docker
     dockerfilePath: ./finaudit-api/Dockerfile
     dockerContext: .
-    plan: starter
-    region: oregon
+    plan: free
+    region: singapore
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SPRING_DATASOURCE_URL
+      - key: DB_HOST
         fromDatabase:
           name: finaudit-db
-          property: connectionString
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: finaudit-db
+          property: port
+      - key: DB_USER
+        fromDatabase:
+          name: finaudit-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: finaudit-db
+          property: password
+      - key: DB_NAME
+        fromDatabase:
+          name: finaudit-db
+          property: database
       - key: GEMINI_API_KEY
         sync: false
       - key: JWT_SECRET
         generateValue: true
 
-  # 2. Frontend Interface (React + Vite + TypeScript)
-  - type: web
-    name: finaudit-frontend
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: finaudit-api
-          property: host
-
 databases:
-  # 3. PostgreSQL 16 with native pgvector extension
+  # 2. PostgreSQL 16 with native pgvector extension
   - name: finaudit-db
     databaseName: finaudit
     user: postgres
-    plan: starter
-    region: oregon
-    postgresMajorVersion: 16
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
