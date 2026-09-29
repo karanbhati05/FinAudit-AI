@@ -62,15 +62,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: postgres
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-dummy-key' }}
         run: |
-          mvn -B verify
-
-      - name: Publish Test Summary to Step Summary
-        if: always()
-        run: |
-          echo "### Test Execution Diagnostics" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          find finaudit-api/target/surefire-reports -name "*.txt" -exec cat {} + >> $GITHUB_STEP_SUMMARY || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          mvn -B verify 2>&1 | tee maven.log || (echo '```' >> $GITHUB_STEP_SUMMARY && tail -n 100 maven.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
 
       - name: Run Gemini Integration Tests (Nightly / Manual Dispatch Only)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_integration_tests == true) }}
