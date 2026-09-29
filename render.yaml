@@ -1,4 +1,4 @@
-# Render Blueprint Specification for FinAudit-AI v1.0.1
+# Render Blueprint Specification for FinAudit-AI v1.0.2
 # Automated zero-config deployment of PostgreSQL (with pgvector) and Spring Boot backend.
 services:
   # 1. Backend Service (Spring Boot 3.4 + Java 21 Virtual Threads)

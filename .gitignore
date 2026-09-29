@@ -25,9 +25,11 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-# Storage & Uploads
-storage/
-uploads/
+# Storage & Uploads (runtime upload dirs only, never source code)
+/storage/
+/uploads/
+finaudit-api/storage/
+!**/src/**
 
 # IDE files
 .idea/
