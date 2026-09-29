@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   hoverLift?: boolean;
@@ -12,6 +13,8 @@ export const Card: React.FC<CardProps> = ({
   className = '',
   ...props
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   const paddingClasses = {
     none: '',
     sm: 'p-4',
@@ -21,15 +24,17 @@ export const Card: React.FC<CardProps> = ({
   };
 
   const liftClasses = hoverLift
-    ? 'hover:-translate-y-0.5 hover:border-strong transition-all duration-200 ease-out cursor-pointer'
+    ? 'hover:border-strong hover:shadow-md transition-shadow duration-200 ease-out'
     : 'transition-colors duration-200';
 
   return (
-    <div
+    <motion.div
+      whileHover={hoverLift && !shouldReduceMotion ? { y: -2 } : undefined}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className={`bg-surface border border-subtle rounded-xl ${paddingClasses[padding]} ${liftClasses} ${className}`}
-      {...props}
+      {...(props as any)}
     >
       {children}
-    </div>
+    </motion.div>
   );
 };

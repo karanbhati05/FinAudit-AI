@@ -21,6 +21,27 @@ import {
   Download,
   Share2,
 } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { AUDIT_EASE } from '../utils/motion';
+
+const findingsContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const findingItemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.25, ease: AUDIT_EASE },
+  },
+};
 
 interface LineItem {
   id: number;
@@ -176,6 +197,7 @@ const DEMO_DETAIL: ReportDetail = {
 
 export const ReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const shouldReduceMotion = useReducedMotion();
   const [isRetrying, setIsRetrying] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -493,7 +515,12 @@ export const ReportDetailPage: React.FC = () => {
             </p>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <motion.div
+            variants={shouldReduceMotion ? undefined : findingsContainerVariants}
+            initial={shouldReduceMotion ? undefined : 'hidden'}
+            animate={shouldReduceMotion ? undefined : 'show'}
+            className="space-y-4"
+          >
             {activeReport.findings.map((finding) => {
               const isExpanded = !!expandedFindings[finding.id];
 
@@ -508,9 +535,11 @@ export const ReportDetailPage: React.FC = () => {
                   : 'border-subtle bg-surface-subtle/30';
 
               return (
-                <div
+                <motion.div
                   key={finding.id}
-                  className={`rounded-xl border transition-all duration-200 overflow-hidden ${cardBorderClass}`}
+                  variants={shouldReduceMotion ? undefined : findingItemVariants}
+                  layout
+                  className={`rounded-xl border transition-colors duration-200 overflow-hidden ${cardBorderClass}`}
                 >
                   {/* Finding Main Header */}
                   <div className="p-6">
@@ -560,22 +589,33 @@ export const ReportDetailPage: React.FC = () => {
                         )}
                       </button>
 
-                      {isExpanded && (
-                        <div className="mt-3 p-4 rounded-lg bg-surface-subtle border-l-2 border-accent text-caption leading-relaxed transition-all duration-150">
-                          <div className="font-mono text-muted uppercase text-[11px] mb-1">
-                            Exact Policy Clause Citation:
-                          </div>
-                          <p className="text-secondary italic">
-                            &ldquo;{finding.policyBodyText || finding.description}&rdquo;
-                          </p>
-                        </div>
-                      )}
+                      <AnimatePresence initial={false}>
+                        {isExpanded && (
+                          <motion.div
+                            key="policy-citation"
+                            initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                            transition={{ duration: 0.22, ease: AUDIT_EASE }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-3 p-4 rounded-lg bg-surface-subtle border-l-2 border-accent text-caption leading-relaxed">
+                              <div className="font-mono text-muted uppercase text-[11px] mb-1">
+                                Exact Policy Clause Citation:
+                              </div>
+                              <p className="text-secondary italic">
+                                &ldquo;{finding.policyBodyText || finding.description}&rdquo;
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </div>
 

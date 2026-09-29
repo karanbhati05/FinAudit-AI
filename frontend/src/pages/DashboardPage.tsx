@@ -24,8 +24,30 @@ import {
   Sparkles,
   Filter,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatedNumber } from '../components/ui/AnimatedNumber';
+import { AUDIT_EASE } from '../utils/motion';
 
 const AuditRiskChart = React.lazy(() => import('../components/dashboard/AuditRiskChart'));
+
+const statGridVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const statItemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: AUDIT_EASE },
+  },
+};
 
 // Memoized Stat Card Component
 interface StatCardProps {
@@ -121,6 +143,7 @@ VirtualReportRow.displayName = 'VirtualReportRow';
 
 export const DashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const shouldReduceMotion = useReducedMotion();
   const [filterRisk, setFilterRisk] = useState<string>('ALL');
 
   // React Query for summary
@@ -212,66 +235,85 @@ export const DashboardPage: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <motion.div
+          variants={shouldReduceMotion ? undefined : statGridVariants}
+          initial={shouldReduceMotion ? undefined : 'hidden'}
+          animate={shouldReduceMotion ? undefined : 'show'}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+        >
           {/* Card 1: Total Reports Audited */}
-          <StatCard
-            title="Total Audited"
-            icon={<FileText className="h-4 w-4 text-accent" />}
-            value={summary.totalReportsAudited}
-            subtitle="Processed financial statements"
-          />
+          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
+            <StatCard
+              title="Total Audited"
+              icon={<FileText className="h-4 w-4 text-accent" />}
+              value={<AnimatedNumber value={summary.totalReportsAudited} />}
+              subtitle="Processed financial statements"
+            />
+          </motion.div>
 
           {/* Card 2: Average Compliance Score */}
-          <StatCard
-            title="Avg Compliance"
-            icon={<TrendingUp className="h-4 w-4 text-accent" />}
-            value={`${summary.averageComplianceScore.toFixed(1)}%`}
-            subtitle="Across all corporate statements"
-          />
+          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
+            <StatCard
+              title="Avg Compliance"
+              icon={<TrendingUp className="h-4 w-4 text-accent" />}
+              value={
+                <AnimatedNumber
+                  value={summary.averageComplianceScore}
+                  decimals={1}
+                  suffix="%"
+                />
+              }
+              subtitle="Across all corporate statements"
+            />
+          </motion.div>
 
           {/* Card 3: Risk Distribution */}
-          <StatCard
-            title="Risk Classification"
-            icon={<ShieldCheck className="h-4 w-4 text-accent" />}
-            value={
-              <div className="flex items-center gap-2">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-title font-bold text-red-500">
-                    {summary.countByRiskLevel.HIGH || 0}
-                  </span>
-                  <span className="text-caption text-muted">High</span>
+          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
+            <StatCard
+              title="Risk Classification"
+              icon={<ShieldCheck className="h-4 w-4 text-accent" />}
+              value={
+                <div className="flex items-center gap-2">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-title font-bold text-red-500">
+                      <AnimatedNumber value={summary.countByRiskLevel.HIGH || 0} />
+                    </span>
+                    <span className="text-caption text-muted">High</span>
+                  </div>
+                  <span className="text-muted">•</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-title font-bold text-accent">
+                      <AnimatedNumber value={summary.countByRiskLevel.MEDIUM || 0} />
+                    </span>
+                    <span className="text-caption text-muted">Med</span>
+                  </div>
+                  <span className="text-muted">•</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-title font-bold text-secondary">
+                      <AnimatedNumber value={summary.countByRiskLevel.LOW || 0} />
+                    </span>
+                    <span className="text-caption text-muted">Low</span>
+                  </div>
                 </div>
-                <span className="text-muted">•</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-title font-bold text-accent">
-                    {summary.countByRiskLevel.MEDIUM || 0}
-                  </span>
-                  <span className="text-caption text-muted">Med</span>
-                </div>
-                <span className="text-muted">•</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-title font-bold text-secondary">
-                    {summary.countByRiskLevel.LOW || 0}
-                  </span>
-                  <span className="text-caption text-muted">Low</span>
-                </div>
-              </div>
-            }
-            subtitle="Breakdown by report severity"
-          />
+              }
+              subtitle="Breakdown by report severity"
+            />
+          </motion.div>
 
           {/* Card 4: Top Policy Violation */}
-          <StatCard
-            title="Top Violation"
-            icon={<AlertTriangle className="h-4 w-4 text-accent" />}
-            value={
-              <span className="truncate block" title={summary.topViolations[0]?.policyReference || 'None'}>
-                {summary.topViolations[0]?.policyReference || 'Zero Violations'}
-              </span>
-            }
-            subtitle={`${summary.topViolations[0]?.count || 0} occurrences flagged`}
-          />
-        </div>
+          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
+            <StatCard
+              title="Top Violation"
+              icon={<AlertTriangle className="h-4 w-4 text-accent" />}
+              value={
+                <span className="truncate block" title={summary.topViolations[0]?.policyReference || 'None'}>
+                  {summary.topViolations[0]?.policyReference || 'Zero Violations'}
+                </span>
+              }
+              subtitle={`${summary.topViolations[0]?.count || 0} occurrences flagged`}
+            />
+          </motion.div>
+        </motion.div>
       )}
 
       {/* Analytics & Charts Row */}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -15,8 +16,10 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   const baseClasses =
-    'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer';
+    'inline-flex items-center justify-center font-medium rounded-lg transition-colors duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-50 disabled:cursor-not-allowed select-none cursor-pointer';
 
   const sizeClasses = {
     sm: 'text-caption px-3 py-1.5 gap-1.5 h-8',
@@ -26,7 +29,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantClasses = {
     primary:
-      'bg-accent text-white hover:opacity-95 shadow-sm active:scale-[0.98]',
+      'bg-accent text-white hover:opacity-95 shadow-sm',
     secondary:
       'bg-surface-subtle text-primary border border-subtle hover:bg-surface-hover hover:border-strong',
     ghost:
@@ -35,11 +38,15 @@ export const Button: React.FC<ButtonProps> = ({
       'bg-red-600/10 text-red-600 border border-red-600/20 hover:bg-red-600/15 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/40',
   };
 
+  const isDisabled = disabled || isLoading;
+
   return (
-    <button
+    <motion.button
+      whileTap={isDisabled || shouldReduceMotion ? undefined : { scale: 0.97 }}
+      transition={{ duration: 0.1, ease: 'easeOut' }}
       className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
-      disabled={disabled || isLoading}
-      {...props}
+      disabled={isDisabled}
+      {...(props as any)}
     >
       {isLoading ? (
         <span className="flex items-center gap-2">
@@ -49,6 +56,6 @@ export const Button: React.FC<ButtonProps> = ({
       ) : (
         children
       )}
-    </button>
+    </motion.button>
   );
 };

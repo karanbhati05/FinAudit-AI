@@ -14,6 +14,8 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { AUDIT_EASE } from '../utils/motion';
 
 interface ReportStatusResponse {
   id: number;
@@ -31,6 +33,7 @@ const STAGES = [
 
 export const UploadPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const shouldReduceMotion = useReducedMotion();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [reportId, setReportId] = useState<number | null>(null);
@@ -295,6 +298,20 @@ Line Items:
               </div>
             </div>
 
+            {/* Animated Progress Path */}
+            <div className="relative mb-6">
+              <div className="h-1.5 w-full bg-surface-subtle border border-subtle rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-accent rounded-full origin-left"
+                  initial={false}
+                  animate={{
+                    scaleX: currentStageIndex < 0 ? 0 : Math.min((currentStageIndex + 1) / STAGES.length, 1),
+                  }}
+                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, ease: AUDIT_EASE }}
+                />
+              </div>
+            </div>
+
             {/* Step Pipeline Visualization */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               {STAGES.map((stage, idx) => {
@@ -314,11 +331,18 @@ Line Items:
                   >
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-caption font-mono text-secondary">0{idx + 1}</span>
-                      {isPassed ? (
-                        <CheckCircle2 className="h-4 w-4 text-accent" />
-                      ) : isCurrent ? (
-                        <span className="h-2 w-2 rounded-full bg-accent animate-ping" />
-                      ) : null}
+                      <motion.div
+                        key={isPassed ? 'passed' : isCurrent ? 'current' : 'pending'}
+                        initial={shouldReduceMotion ? false : { scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.2, ease: AUDIT_EASE }}
+                      >
+                        {isPassed ? (
+                          <CheckCircle2 className="h-4 w-4 text-accent" />
+                        ) : isCurrent ? (
+                          <span className="h-2 w-2 rounded-full bg-accent animate-ping" />
+                        ) : null}
+                      </motion.div>
                     </div>
                     <div className="text-body font-semibold text-primary">{stage.label}</div>
                     <p className="text-caption text-secondary mt-1">{stage.desc}</p>
@@ -385,9 +409,19 @@ Line Items:
 
             {auditStatus.status === 'COMPLETE' && (
               <div className="p-6 rounded-xl bg-surface-subtle border border-accent/30 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-accent text-white flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5" />
+                <div className="flex items-center gap-3.5">
+                  <div className="h-10 w-10 rounded-xl bg-accent-subtle border border-accent/30 text-accent flex items-center justify-center shrink-0">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <motion.path
+                        d="M5 13l4 4L19 7"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        initial={shouldReduceMotion ? { pathLength: 1 } : { pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.45, ease: AUDIT_EASE }}
+                      />
+                    </svg>
                   </div>
                   <div>
                     <h4 className="text-subhead font-semibold text-primary">

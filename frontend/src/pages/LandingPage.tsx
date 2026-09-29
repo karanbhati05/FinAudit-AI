@@ -14,12 +14,16 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { prefetchDashboardData } from '../services/dashboardService';
+import { HeroCanvasMesh } from '../components/ui/HeroCanvasMesh';
+import { AUDIT_EASE } from '../utils/motion';
 
 export const LandingPage: React.FC = () => {
   const { loginDemo } = useAuth();
   const navigate = useNavigate();
   const [isLoggingInDemo, setIsLoggingInDemo] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   const handleViewDemo = async () => {
     setIsLoggingInDemo(true);
@@ -34,9 +38,10 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
+      {/* Hero Section with Canvas Particle Mesh Background */}
       <section className="relative pt-20 pb-24 md:pt-32 md:pb-36 overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6">
+        <HeroCanvasMesh className="opacity-75 dark:opacity-90" />
+        <div className="relative z-10 max-w-6xl mx-auto px-6">
           <div className="max-w-3xl">
             {/* Pill Tag */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-subtle bg-surface-subtle/80 mb-8 text-caption text-secondary">
@@ -165,41 +170,49 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <Card padding="lg" className="relative group">
-              <div className="h-12 w-12 rounded-xl bg-accent-subtle border border-accent/20 flex items-center justify-center text-accent mb-6">
-                <FileSpreadsheet className="h-6 w-6" />
-              </div>
-              <div className="text-caption font-mono text-accent mb-2">STAGE 01</div>
-              <h3 className="text-title text-primary mb-3">Ingest & Async Parsing</h3>
-              <p className="text-body text-secondary leading-relaxed">
-                Raw expense PDFs or text receipts are uploaded and handled asynchronously on Java 21 virtual threads. Gemini extracts structured line items via validated schema conversion.
-              </p>
-            </Card>
-
-            {/* Step 2 */}
-            <Card padding="lg" className="relative group">
-              <div className="h-12 w-12 rounded-xl bg-accent-subtle border border-accent/20 flex items-center justify-center text-accent mb-6">
-                <Cpu className="h-6 w-6" />
-              </div>
-              <div className="text-caption font-mono text-accent mb-2">STAGE 02</div>
-              <h3 className="text-title text-primary mb-3">RAG + Deterministic Audit</h3>
-              <p className="text-body text-secondary leading-relaxed">
-                The engine vector-searches relevant policy clauses in pgvector (768-dim embeddings) while invoking database tools to guarantee zero duplicate invoices across prior reports.
-              </p>
-            </Card>
-
-            {/* Step 3 */}
-            <Card padding="lg" className="relative group">
-              <div className="h-12 w-12 rounded-xl bg-accent-subtle border border-accent/20 flex items-center justify-center text-accent mb-6">
-                <BarChart3 className="h-6 w-6" />
-              </div>
-              <div className="text-caption font-mono text-accent mb-2">STAGE 03</div>
-              <h3 className="text-title text-primary mb-3">Actionable Dashboard</h3>
-              <p className="text-body text-secondary leading-relaxed">
-                Aggregated metrics, compliance scores, and risk distributions are updated instantly. Auditors can inspect individual findings with full policy citations and line-item context.
-              </p>
-            </Card>
+            {[
+              {
+                stage: 'STAGE 01',
+                icon: <FileSpreadsheet className="h-6 w-6" />,
+                title: 'Ingest & Async Parsing',
+                desc: 'Raw expense PDFs or text receipts are uploaded and handled asynchronously on Java 21 virtual threads. Gemini extracts structured line items via validated schema conversion.',
+              },
+              {
+                stage: 'STAGE 02',
+                icon: <Cpu className="h-6 w-6" />,
+                title: 'RAG + Deterministic Audit',
+                desc: 'The engine vector-searches relevant policy clauses in pgvector (768-dim embeddings) while invoking database tools to guarantee zero duplicate invoices across prior reports.',
+              },
+              {
+                stage: 'STAGE 03',
+                icon: <BarChart3 className="h-6 w-6" />,
+                title: 'Actionable Dashboard',
+                desc: 'Aggregated metrics, compliance scores, and risk distributions are updated instantly. Auditors can inspect individual findings with full policy citations and line-item context.',
+              },
+            ].map((step, idx) => (
+              <motion.div
+                key={step.stage}
+                initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{
+                  duration: 0.35,
+                  delay: shouldReduceMotion ? 0 : idx * 0.12,
+                  ease: AUDIT_EASE,
+                }}
+              >
+                <Card padding="lg" hoverLift className="relative group h-full">
+                  <div className="h-12 w-12 rounded-xl bg-accent-subtle border border-accent/20 flex items-center justify-center text-accent mb-6">
+                    {step.icon}
+                  </div>
+                  <div className="text-caption font-mono text-accent mb-2">{step.stage}</div>
+                  <h3 className="text-title text-primary mb-3">{step.title}</h3>
+                  <p className="text-body text-secondary leading-relaxed">
+                    {step.desc}
+                  </p>
+                </Card>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
