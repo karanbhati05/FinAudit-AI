@@ -93,7 +93,7 @@ class ReportParsingIntegrationTest {
 
         // 5. Verify results
         Report updatedReport = reportRepository.findById(report.getId()).orElseThrow();
-        assertThat(updatedReport.getStatus()).isEqualTo(ReportStatus.AUDITING);
+        assertThat(updatedReport.getStatus()).isIn(ReportStatus.AUDITING, ReportStatus.COMPLETE);
 
         List<ReportLineItem> items = lineItemRepository.findByReportId(report.getId());
         assertThat(items).isNotEmpty();

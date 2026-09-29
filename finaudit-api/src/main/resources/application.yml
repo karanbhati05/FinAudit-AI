@@ -18,9 +18,14 @@ spring:
             model: gemini-2.5-flash
         embedding:
           api-key: ${GEMINI_API_KEY:}
-          model: text-embedding-004
+          model: gemini-embedding-001
           options:
-            model: text-embedding-004
+            model: gemini-embedding-001
+            dimensions: 768
+          text:
+            options:
+              model: gemini-embedding-001
+              dimensions: 768
   jpa:
     open-in-view: false
     properties:

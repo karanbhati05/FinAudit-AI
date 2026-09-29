@@ -1,0 +1,25 @@
+INVOICE / EXPENSE REPORT
+Employee: Karan Bhati
+Date: 2026-03-15
+Department: Engineering
+
+Item 1:
+Vendor: Emirates Airlines
+Invoice ID: INV-EMIRATES-8821
+Amount: 75000.00 INR
+Category: TRAVEL
+Description: Flight to London international flight business class, no VP approval obtained
+
+Item 2:
+Vendor: The Ritz Carlton
+Invoice ID: INV-RITZ-4402
+Amount: 32000.00 INR
+Category: LODGING
+Description: 2 nights hotel stay in London conference center
+
+Item 3:
+Vendor: London Bistro
+Invoice ID: INV-BISTRO-1199
+Amount: 8500.00 INR
+Category: MEALS
+Description: Client dinner with vintage champagne alcohol included without manager pre-approval

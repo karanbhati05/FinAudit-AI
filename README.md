@@ -108,7 +108,7 @@ sequenceDiagram
 
     rect rgb(245, 255, 245)
     Note over API,DB: Step 2: RAG Semantic Policy Search
-    API->>Gemini: Embed line item text (text-embedding-004)
+    API->>Gemini: Embed line item text (gemini-embedding-001)
     API->>DB: Query top-K compliance policies (Cosine distance)
     DB-->>API: Matching Policy Excerpts
     end
@@ -138,7 +138,7 @@ sequenceDiagram
 1. **Multimodal Entity Extraction with Schema Enforcement**:  
    Extracts invoices and multi-page receipts using `gemini-2.5-flash` with zero hallucination using strictly typed records and low temperature (0.0).
 2. **Hybrid Deterministic + Probabilistic Auditing**:  
-   Merges vector similarity matching (`text-embedding-004` against company compliance rules) with deterministic Spring AI tool calling (`DuplicateInvoiceDetectionTool`) to verify invoice ID collisions across historical reports.
+   Merges vector similarity matching (`gemini-embedding-001` configured to 768-dim against company compliance rules) with deterministic Spring AI tool calling (`DuplicateInvoiceDetectionTool`) to verify invoice ID collisions across historical reports.
 3. **High-Performance Virtual Threads**:  
    Built on Java 21 Virtual Threads (`spring.threads.virtual.enabled: true`), permitting asynchronous document processing and LLM calls without thread pool exhaustion.
 4. **Hardened Defense-in-Depth Security**:  

@@ -213,7 +213,7 @@ export const LandingPage: React.FC = () => {
                   <div>
                     <span className="text-body font-medium text-primary">pgvector Cosine Search:</span>
                     <span className="text-body text-secondary ml-1">
-                      768-dimensional embeddings generated with Google's text-embedding-004.
+                      768-dimensional embeddings generated with Google's gemini-embedding-001.
                     </span>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export const LandingPage: React.FC = () => {
                   <span className="text-body font-semibold text-primary">Model & Ingestion</span>
                 </div>
                 <p className="text-caption text-secondary font-mono">
-                  Gemini 2.5 Flash • text-embedding-004 • Apache PDFBox 3.0.4
+                  Gemini 2.5 Flash • gemini-embedding-001 • Apache PDFBox 3.0.4
                 </p>
               </Card>
 

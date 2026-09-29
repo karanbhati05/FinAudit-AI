@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @Configuration
 public class VectorStoreConfig {
 
-    public static final int EMBEDDING_DIMENSIONS = 768; // Gemini text-embedding-004 output dimension
+    public static final int EMBEDDING_DIMENSIONS = 768; // Gemini gemini-embedding-001 output dimension (configured to 768)
     public static final String VECTOR_TABLE_NAME = "compliance_policy_embeddings";
 
     @Bean

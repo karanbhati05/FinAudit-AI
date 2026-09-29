@@ -36,15 +36,24 @@ public class AuditPromptService {
 
         // Clean out possible markdown code block fences if any LLM returns ```json ... ```
         String cleaned = rawResponse.trim();
-        if (cleaned.startsWith("```json")) {
-            cleaned = cleaned.substring(7);
-        } else if (cleaned.startsWith("```")) {
-            cleaned = cleaned.substring(3);
+        int firstBrace = cleaned.indexOf('{');
+        int lastBrace = cleaned.lastIndexOf('}');
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        } else {
+            if (cleaned.startsWith("```json")) {
+                cleaned = cleaned.substring(7);
+            } else if (cleaned.startsWith("```")) {
+                cleaned = cleaned.substring(3);
+            }
+            if (cleaned.endsWith("```")) {
+                cleaned = cleaned.substring(0, cleaned.length() - 3);
+            }
+            cleaned = cleaned.trim();
         }
-        if (cleaned.endsWith("```")) {
-            cleaned = cleaned.substring(0, cleaned.length() - 3);
-        }
-        cleaned = cleaned.trim();
+
+        // Recover from occasional missing closing brace before next item: e.g. "CRITICAL"\n  ,\n  { -> "CRITICAL"\n  },\n  {
+        cleaned = cleaned.replaceAll("(?<!\\})\\s*,\\s*\\{", "},{");
 
         return outputConverter.convert(cleaned);
     }
