@@ -64,6 +64,11 @@ jobs:
         run: |
           mvn -B verify
 
+      - name: Dump surefire reports on failure
+        if: failure()
+        run: |
+          find . -name "*.txt" -path "*/surefire-reports/*" -exec cat {} +
+
       - name: Run Gemini Integration Tests (Nightly / Manual Dispatch Only)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_integration_tests == true) }}
         env:
