@@ -1,6 +1,8 @@
 package com.finaudit.api.controller;
 
 import com.finaudit.api.service.ObservabilityService;
+import com.finaudit.api.service.ScheduledCleanupService;
+import com.finaudit.core.model.CleanupSummary;
 import com.finaudit.core.model.ObservabilityMetricsResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -9,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,9 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminObservabilityController {
 
     private final ObservabilityService observabilityService;
+    private final ScheduledCleanupService scheduledCleanupService;
 
-    public AdminObservabilityController(ObservabilityService observabilityService) {
+    public AdminObservabilityController(
+            ObservabilityService observabilityService,
+            ScheduledCleanupService scheduledCleanupService
+    ) {
         this.observabilityService = observabilityService;
+        this.scheduledCleanupService = scheduledCleanupService;
     }
 
     @GetMapping("/metrics")
@@ -31,5 +39,14 @@ public class AdminObservabilityController {
     @ApiResponse(responseCode = "403", description = "Forbidden - Admin privilege required")
     public ResponseEntity<ObservabilityMetricsResponse> getMetrics() {
         return ResponseEntity.ok(observabilityService.getObservabilityMetrics());
+    }
+
+    @PostMapping("/maintenance/cleanup")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Trigger storage hygiene and demo cleanup", description = "Executes the 30-day retention cleanup and resets the demo account to canonical reports")
+    @ApiResponse(responseCode = "200", description = "Maintenance cleanup completed successfully")
+    @ApiResponse(responseCode = "403", description = "Forbidden - Admin privilege required")
+    public ResponseEntity<CleanupSummary> triggerCleanup() {
+        return ResponseEntity.ok(scheduledCleanupService.runScheduledCleanup());
     }
 }

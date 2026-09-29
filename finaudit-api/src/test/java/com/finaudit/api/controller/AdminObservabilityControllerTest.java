@@ -25,6 +25,9 @@ class AdminObservabilityControllerTest {
     @MockitoBean
     private ObservabilityService observabilityService;
 
+    @MockitoBean
+    private com.finaudit.api.service.ScheduledCleanupService scheduledCleanupService;
+
     @Test
     @DisplayName("GET /api/admin/metrics should return aggregate observability metrics")
     void shouldReturnObservabilityMetrics() throws Exception {
@@ -51,5 +54,28 @@ class AdminObservabilityControllerTest {
                 .andExpect(jsonPath("$.circuitBreakerStatus").value("CLOSED"))
                 .andExpect(jsonPath("$.geminiCallsToday").value(18))
                 .andExpect(jsonPath("$.averageAuditCompletionTimeSeconds").value(4.5));
+    }
+
+    @Test
+    @DisplayName("POST /api/admin/maintenance/cleanup should execute storage hygiene and return summary")
+    void shouldTriggerScheduledCleanup() throws Exception {
+        com.finaudit.core.model.CleanupSummary summary = new com.finaudit.core.model.CleanupSummary(
+                3,
+                1,
+                4,
+                1048576L,
+                12,
+                java.time.Instant.now()
+        );
+
+        when(scheduledCleanupService.runScheduledCleanup()).thenReturn(summary);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/admin/maintenance/cleanup")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiredNonDemoReportsDeleted").value(3))
+                .andExpect(jsonPath("$.demoVisitorReportsDeleted").value(1))
+                .andExpect(jsonPath("$.canonicalReportsCount").value(4))
+                .andExpect(jsonPath("$.totalStorageBytesRemaining").value(1048576));
     }
 }

@@ -50,6 +50,13 @@ public class DemoDataSeeder implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
     }
 
+    public static final java.util.Set<String> CANONICAL_DEMO_FILENAMES = java.util.Set.of(
+            "Q3_Executive_Travel_Claim.pdf",
+            "Vendor_Payment_Batch_Sept.txt",
+            "Global_Procurement_Audit_H1.pdf",
+            "Marketing_Field_Expenses_Aug.csv"
+    );
+
     @Override
     @Transactional
     public void run(String... args) {
@@ -68,18 +75,40 @@ public class DemoDataSeeder implements CommandLineRunner {
             return userRepository.save(u);
         });
 
-        // 2. Check if reports already exist for this demo user
+        ensureCanonicalReportsExist(demoUser);
+    }
+
+    public void ensureCanonicalReportsExist(User demoUser) {
         List<Report> existingReports = reportRepository.findByOwnerId(demoUser.getId());
-        if (!existingReports.isEmpty()) {
-            log.info("Demo account already has {} pre-audited reports. Skipping seeding.", existingReports.size());
+        java.util.Set<String> existingNames = existingReports.stream()
+                .map(Report::getOriginalFilename)
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (existingNames.containsAll(CANONICAL_DEMO_FILENAMES)) {
+            log.info("Demo account already has all 4 canonical pre-audited reports.");
             return;
         }
 
-        log.info("Seeding 4 pre-audited demo reports for demo account...");
+        log.info("Seeding missing canonical demo reports for demo account...");
+        if (!existingNames.contains("Q3_Executive_Travel_Claim.pdf")) {
+            seedReport1(demoUser.getId());
+        }
+        if (!existingNames.contains("Vendor_Payment_Batch_Sept.txt")) {
+            seedReport2(demoUser.getId());
+        }
+        if (!existingNames.contains("Global_Procurement_Audit_H1.pdf")) {
+            seedReport3(demoUser.getId());
+        }
+        if (!existingNames.contains("Marketing_Field_Expenses_Aug.csv")) {
+            seedReport4(demoUser.getId());
+        }
+        log.info("Canonical demo reports verified and restored.");
+    }
 
+    private void seedReport1(Long ownerId) {
         // Report 1: Q3_Executive_Travel_Claim.pdf (Score: 72, Risk: MEDIUM)
         createReport(
-                demoUser.getId(),
+                ownerId,
                 "Q3_Executive_Travel_Claim.pdf",
                 "storage/demo/Q3_Executive_Travel_Claim.pdf",
                 72,
@@ -101,10 +130,12 @@ public class DemoDataSeeder implements CommandLineRunner {
                                 "Corporate Dining & Entertainment Policy - Section 2.3: Per Diem Caps")
                 )
         );
+    }
 
+    private void seedReport2(Long ownerId) {
         // Report 2: Vendor_Payment_Batch_Sept.txt (Score: 35, Risk: HIGH)
         createReport(
-                demoUser.getId(),
+                ownerId,
                 "Vendor_Payment_Batch_Sept.txt",
                 "storage/demo/Vendor_Payment_Batch_Sept.txt",
                 35,
@@ -126,10 +157,12 @@ public class DemoDataSeeder implements CommandLineRunner {
                                 "Procurement & Approval Matrix - Section 6.2: Dual Sign-off")
                 )
         );
+    }
 
+    private void seedReport3(Long ownerId) {
         // Report 3: Global_Procurement_Audit_H1.pdf (Score: 96, Risk: LOW)
         createReport(
-                demoUser.getId(),
+                ownerId,
                 "Global_Procurement_Audit_H1.pdf",
                 "storage/demo/Global_Procurement_Audit_H1.pdf",
                 96,
@@ -147,10 +180,12 @@ public class DemoDataSeeder implements CommandLineRunner {
                                 "Software Licensing & Asset Management - Section 3.1")
                 )
         );
+    }
 
+    private void seedReport4(Long ownerId) {
         // Report 4: Marketing_Field_Expenses_Aug.csv (Score: 58, Risk: HIGH)
         createReport(
-                demoUser.getId(),
+                ownerId,
                 "Marketing_Field_Expenses_Aug.csv",
                 "storage/demo/Marketing_Field_Expenses_Aug.csv",
                 58,
@@ -172,8 +207,6 @@ public class DemoDataSeeder implements CommandLineRunner {
                                 "Business Expense Substantiation - Section 2.1: Eligible Operating Hours")
                 )
         );
-
-        log.info("Successfully seeded 4 pre-audited demo reports!");
     }
 
     private void createReport(

@@ -40,8 +40,12 @@ class LocalStorageServiceTest {
             assertThat(read).isEqualTo("Hello Financial World");
         }
 
+        long bytesBeforeDelete = storageService.getTotalStorageBytes();
+        assertThat(bytesBeforeDelete).isEqualTo(content.getBytes(StandardCharsets.UTF_8).length);
+
         storageService.delete(100L);
         assertThat(storedPath).doesNotExist();
+        assertThat(storageService.getTotalStorageBytes()).isZero();
     }
 
     @Test

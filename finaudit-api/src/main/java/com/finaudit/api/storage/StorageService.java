@@ -8,4 +8,5 @@ public interface StorageService {
     Path getPath(Long reportId, String filename);
     InputStream load(Long reportId, String filename);
     void delete(Long reportId);
+    long getTotalStorageBytes();
 }

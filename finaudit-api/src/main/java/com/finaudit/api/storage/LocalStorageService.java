@@ -78,4 +78,23 @@ public class LocalStorageService implements StorageService {
             }
         }
     }
+
+    @Override
+    public long getTotalStorageBytes() {
+        if (!Files.exists(rootLocation)) {
+            return 0L;
+        }
+        try (var stream = Files.walk(rootLocation)) {
+            return stream.filter(Files::isRegularFile)
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException e) {
+                            return 0L;
+                        }
+                    }).sum();
+        } catch (IOException e) {
+            return 0L;
+        }
+    }
 }
