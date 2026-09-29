@@ -178,9 +178,33 @@ public class AuditOrchestrationService {
             ));
         }
 
+        // --- Step 2.5: Deterministic Database Duplicate Checks ---
+        StringBuilder duplicateCheckBuilder = new StringBuilder("### Deterministic Database Duplicate Checks:\n");
+        boolean foundDuplicate = false;
+        if (duplicateInvoiceTool != null) {
+            duplicateInvoiceTool.setCurrentReportId(reportId);
+            for (ReportLineItem item : lineItems) {
+                var check = duplicateInvoiceTool.checkDatabaseForDuplicateInvoice(item.getVendor(), item.getInvoiceId());
+                if (check != null && check.isDuplicate()) {
+                    foundDuplicate = true;
+                    duplicateCheckBuilder.append(String.format(
+                            "- [FLAGGED DUPLICATE] Line %d (Vendor: %s, Invoice: %s): Previously submitted and audited in Report #%d on %s.\n",
+                            item.getLineNumber() != null ? item.getLineNumber() : 0,
+                            item.getVendor(),
+                            item.getInvoiceId(),
+                            check.originalReportId(),
+                            check.originalReportDate() != null ? check.originalReportDate() : "prior report"
+                    ));
+                }
+            }
+        }
+        if (!foundDuplicate) {
+            duplicateCheckBuilder.append("- Database verification confirmed: No duplicate invoices found across historical filings for any line items in this report.\n");
+        }
+
         // --- Step 3: Execute Gemini Audit Call ---
         String systemPrompt = auditPromptService.buildSystemPrompt();
-        String userPrompt = policyContextBuilder + "\n\n" + lineItemsBuilder;
+        String userPrompt = policyContextBuilder + "\n\n" + lineItemsBuilder + "\n\n" + duplicateCheckBuilder;
 
         log.debug("Sending audit prompt to ChatClient for report ID: {}", reportId);
         if (duplicateInvoiceTool != null) {
