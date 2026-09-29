@@ -58,7 +58,6 @@ public class DemoDataSeeder implements CommandLineRunner {
     );
 
     @Override
-    @Transactional
     public void run(String... args) {
         try {
             seedDemoData();
@@ -67,6 +66,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         }
     }
 
+    @Transactional
     public void seedDemoData() {
         // 1. Ensure Demo User exists
         User demoUser = userRepository.findByEmail(DEMO_EMAIL).orElseGet(() -> {
@@ -78,9 +78,29 @@ public class DemoDataSeeder implements CommandLineRunner {
         ensureCanonicalReportsExist(demoUser);
     }
 
+    @Transactional
     public void ensureCanonicalReportsExist(User demoUser) {
         List<Report> existingReports = reportRepository.findByOwnerId(demoUser.getId());
-        java.util.Set<String> existingNames = existingReports.stream()
+
+        // Clean up any incomplete or corrupted canonical reports left by prior failed transactions
+        for (Report r : existingReports) {
+            if (CANONICAL_DEMO_FILENAMES.contains(r.getOriginalFilename())) {
+                boolean hasLineItems = !lineItemRepository.findByReportId(r.getId()).isEmpty();
+                boolean hasAuditRun = auditRunRepository.findByReportId(r.getId()).isPresent();
+                if (!hasLineItems || !hasAuditRun) {
+                    log.warn("Found incomplete canonical demo report ID {} ({}). Cleaning up for fresh seed.",
+                            r.getId(), r.getOriginalFilename());
+                    auditFindingRepository.deleteAll(auditFindingRepository.findByReportId(r.getId()));
+                    auditRunRepository.findByReportId(r.getId()).ifPresent(auditRunRepository::delete);
+                    lineItemRepository.deleteAll(lineItemRepository.findByReportId(r.getId()));
+                    reportRepository.delete(r);
+                }
+            }
+        }
+
+        // Re-query valid existing reports
+        List<Report> validReports = reportRepository.findByOwnerId(demoUser.getId());
+        java.util.Set<String> existingNames = validReports.stream()
                 .map(Report::getOriginalFilename)
                 .collect(java.util.stream.Collectors.toSet());
 
