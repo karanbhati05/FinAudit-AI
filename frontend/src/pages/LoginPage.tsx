@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ShieldCheck, ArrowRight } from 'lucide-react';
+import { prefetchDashboardData } from '../services/dashboardService';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -26,6 +27,8 @@ export const LoginPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       await login(email, password);
+      // Prefetch dashboard route data immediately upon login success
+      prefetchDashboardData();
       navigate('/dashboard');
     } catch (err: any) {
       setError(
@@ -41,6 +44,8 @@ export const LoginPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       await loginDemo('AUDITOR');
+      // Prefetch dashboard route data immediately upon demo login success
+      prefetchDashboardData();
       navigate('/dashboard');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Demo login failed.');

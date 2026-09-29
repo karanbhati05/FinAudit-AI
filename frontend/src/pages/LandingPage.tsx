@@ -14,6 +14,7 @@ import {
   Layers,
   Sparkles,
 } from 'lucide-react';
+import { prefetchDashboardData } from '../services/dashboardService';
 
 export const LandingPage: React.FC = () => {
   const { loginDemo } = useAuth();
@@ -24,6 +25,7 @@ export const LandingPage: React.FC = () => {
     setIsLoggingInDemo(true);
     try {
       await loginDemo('AUDITOR');
+      prefetchDashboardData();
       navigate('/dashboard');
     } finally {
       setIsLoggingInDemo(false);

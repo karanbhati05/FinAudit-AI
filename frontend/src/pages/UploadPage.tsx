@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -29,16 +30,68 @@ const STAGES = [
 ] as const;
 
 export const UploadPage: React.FC = () => {
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [reportId, setReportId] = useState<number | null>(null);
-  const [auditStatus, setAuditStatus] = useState<ReportStatusResponse | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pollingTimerRef = useRef<number | null>(null);
   const navigate = useNavigate();
+
+  // Status Polling via React Query
+  const { data: auditStatus = null } = useQuery<ReportStatusResponse | null>({
+    queryKey: ['reportStatus', reportId],
+    queryFn: async () => {
+      if (!reportId) return null;
+      const res = await api.get<ReportStatusResponse>(`/reports/${reportId}/status`);
+      return res.data;
+    },
+    enabled: !!reportId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return 1500;
+      if (data.status === 'COMPLETE' || data.status === 'FAILED') {
+        return false;
+      }
+      return 1500;
+    },
+  });
+
+  // Upload Mutation with Optimistic Cache Priming
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post('/reports/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data;
+    },
+    onMutate: () => {
+      setErrorMessage(null);
+    },
+    onSuccess: (data) => {
+      const repId = data.reportId || data.id || data;
+      setReportId(repId);
+      // Optimistically seed status in cache
+      queryClient.setQueryData(['reportStatus', repId], {
+        id: repId,
+        status: 'UPLOADED',
+        lineItemCount: 0,
+      });
+      // Invalidate reports list so dashboard updates when navigated back
+      queryClient.invalidateQueries({ queryKey: ['reportsList'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardSummary'] });
+    },
+    onError: (err: any) => {
+      setErrorMessage(
+        err.response?.data?.message || 'Failed to upload report. Check backend connectivity.'
+      );
+    },
+  });
+
+  const isUploading = uploadMutation.isPending;
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -76,7 +129,6 @@ export const UploadPage: React.FC = () => {
       return;
     }
     setSelectedFile(file);
-    setAuditStatus(null);
     setReportId(null);
   };
 
@@ -98,62 +150,10 @@ Line Items:
     validateAndSetFile(sampleFile);
   };
 
-  const handleStartAudit = async () => {
+  const handleStartAudit = () => {
     if (!selectedFile) return;
-
-    try {
-      setIsUploading(true);
-      setErrorMessage(null);
-
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
-      const response = await api.post('/reports/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const repId = response.data.reportId || response.data.id || response.data;
-      setReportId(repId);
-      setAuditStatus({
-        id: repId,
-        status: 'UPLOADED',
-        lineItemCount: 0,
-      });
-    } catch (err: any) {
-      setErrorMessage(
-        err.response?.data?.message || 'Failed to upload report. Check backend connectivity.'
-      );
-      setIsUploading(false);
-    }
+    uploadMutation.mutate(selectedFile);
   };
-
-  // Status Polling Effect
-  useEffect(() => {
-    if (!reportId || !auditStatus) return;
-
-    if (auditStatus.status === 'COMPLETE' || auditStatus.status === 'FAILED') {
-      setIsUploading(false);
-      return;
-    }
-
-    const pollStatus = async () => {
-      try {
-        const response = await api.get<ReportStatusResponse>(`/reports/${reportId}/status`);
-        setAuditStatus(response.data);
-      } catch (err) {
-        console.error('Error polling report status', err);
-      }
-    };
-
-    const intervalId = window.setInterval(pollStatus, 1500);
-    pollingTimerRef.current = intervalId;
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [reportId, auditStatus?.status]);
 
   // Stage calculations
   const getStageIndex = (status?: string): number => {
@@ -356,12 +356,13 @@ Line Items:
                     size="sm"
                     onClick={async () => {
                       try {
-                        setIsUploading(true);
                         await api.post(`/reports/${reportId}/retry`);
-                        setAuditStatus((prev) => prev ? { ...prev, status: 'UPLOADED', errorReason: undefined } : null);
+                        queryClient.setQueryData(['reportStatus', reportId], {
+                          id: reportId,
+                          status: 'UPLOADED',
+                        });
                       } catch (err: any) {
                         alert(err?.response?.data?.message || 'Failed to retry audit.');
-                        setIsUploading(false);
                       }
                     }}
                   >
@@ -372,8 +373,8 @@ Line Items:
                     variant="secondary"
                     size="sm"
                     onClick={() => {
-                      setAuditStatus(null);
                       setReportId(null);
+                      setSelectedFile(null);
                     }}
                   >
                     Upload New File
@@ -412,7 +413,6 @@ Line Items:
                     size="md"
                     onClick={() => {
                       setSelectedFile(null);
-                      setAuditStatus(null);
                       setReportId(null);
                     }}
                   >

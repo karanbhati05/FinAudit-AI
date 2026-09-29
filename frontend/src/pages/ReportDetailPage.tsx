@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -175,44 +176,38 @@ const DEMO_DETAIL: ReportDetail = {
 
 export const ReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [report, setReport] = useState<ReportDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareSuccessToast, setShareSuccessToast] = useState<string | null>(null);
   const [expandedFindings, setExpandedFindings] = useState<Record<number, boolean>>({ 1: true });
 
-  const fetchReport = async () => {
-    try {
-      const res = await api.get<ReportDetail>(`/reports/${id}`);
-      setReport(res.data);
-    } catch (err) {
-      console.warn('Backend not responding or report not found, falling back to demo detail', err);
-      setReport({
-        ...DEMO_DETAIL,
-        id: id ? parseInt(id, 10) : DEMO_DETAIL.id,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    setIsLoading(true);
-    fetchReport();
-  }, [id]);
-
-  // Polling watchdog for in-progress pipeline
-  useEffect(() => {
-    if (!report) return;
-    if (['UPLOADED', 'PARSING', 'AUDITING'].includes(report.status)) {
-      const timer = setTimeout(() => {
-        fetchReport();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [report?.status, id]);
+  const {
+    data: activeReport = DEMO_DETAIL,
+    isLoading,
+    refetch: fetchReport,
+  } = useQuery({
+    queryKey: ['reportDetail', id],
+    queryFn: async (): Promise<ReportDetail> => {
+      try {
+        const res = await api.get<ReportDetail>(`/reports/${id}`);
+        return res.data;
+      } catch (err) {
+        console.warn('Backend not responding or report not found, falling back to demo detail', err);
+        return {
+          ...DEMO_DETAIL,
+          id: id ? parseInt(id, 10) : DEMO_DETAIL.id,
+        };
+      }
+    },
+    refetchInterval: (query) => {
+      const stateData = query.state.data;
+      if (stateData && ['UPLOADED', 'PARSING', 'AUDITING'].includes(stateData.status)) {
+        return 2000;
+      }
+      return false;
+    },
+  });
 
   const handleRetry = async () => {
     if (!id) return;
@@ -282,18 +277,18 @@ export const ReportDetailPage: React.FC = () => {
     }));
   };
 
-  const activeReport = report || DEMO_DETAIL;
-
-  // Map findings by lineItemId for highlighting in line-items table
-  const findingsByLineItem = (activeReport.findings || []).reduce(
-    (acc, finding) => {
-      if (finding.lineItemId) {
-        acc[finding.lineItemId] = finding;
-      }
-      return acc;
-    },
-    {} as Record<number, Finding>
-  );
+  // Map findings by lineItemId for highlighting in line-items table (memoized)
+  const findingsByLineItem = useMemo(() => {
+    return (activeReport.findings || []).reduce(
+      (acc, finding) => {
+        if (finding.lineItemId) {
+          acc[finding.lineItemId] = finding;
+        }
+        return acc;
+      },
+      {} as Record<number, Finding>
+    );
+  }, [activeReport.findings]);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
