@@ -17,6 +17,8 @@ import {
   Layers,
   Calendar,
   CheckCircle2,
+  Download,
+  Share2,
 } from 'lucide-react';
 
 interface LineItem {
@@ -176,6 +178,9 @@ export const ReportDetailPage: React.FC = () => {
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccessToast, setShareSuccessToast] = useState<string | null>(null);
   const [expandedFindings, setExpandedFindings] = useState<Record<number, boolean>>({ 1: true });
 
   const fetchReport = async () => {
@@ -224,6 +229,52 @@ export const ReportDetailPage: React.FC = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!activeReport?.id) return;
+    try {
+      setIsDownloadingPdf(true);
+      const res = await api.get(`/reports/${activeReport.id}/export/pdf`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `FinAudit-Report-${activeReport.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download PDF summary', err);
+      alert('Could not generate PDF export. Please try again.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!activeReport?.id) return;
+    try {
+      setIsSharing(true);
+      const res = await api.post<{ shareUrl: string; shareToken: string; expiresAt: string }>(
+        `/reports/${activeReport.id}/share`
+      );
+      const publicUrl = `${window.location.origin}/share/${res.data.shareToken}`;
+      await navigator.clipboard.writeText(publicUrl);
+      setShareSuccessToast('Public share link copied to clipboard! (Expires in 7 days)');
+      setTimeout(() => setShareSuccessToast(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to create share link', err);
+      const fallbackUrl = `${window.location.origin}/share/demo-token-${activeReport.id}`;
+      await navigator.clipboard.writeText(fallbackUrl);
+      setShareSuccessToast('Demo share link copied to clipboard!');
+      setTimeout(() => setShareSuccessToast(null), 4000);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const toggleFindingExpansion = (findingId: number) => {
     setExpandedFindings((prev) => ({
       ...prev,
@@ -259,7 +310,7 @@ export const ReportDetailPage: React.FC = () => {
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
         ) : (
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-subtle">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-subtle">
             <div>
               <div className="flex items-center gap-3">
                 <span className="text-caption font-mono uppercase tracking-wider text-accent font-semibold">
@@ -286,32 +337,76 @@ export const ReportDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Compliance Score Gauge Card */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-surface-subtle border border-subtle">
-              <div className="text-right">
-                <div className="text-caption uppercase tracking-wider text-muted font-medium">
-                  Compliance Score
+            {/* Compliance Score Gauge Card and Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-surface-subtle border border-subtle">
+                <div className="text-right">
+                  <div className="text-caption uppercase tracking-wider text-muted font-medium">
+                    Compliance Score
+                  </div>
+                  <div className="text-headline font-bold text-primary font-mono">
+                    {activeReport.complianceScore ?? '—'}
+                    <span className="text-caption text-muted font-normal">/100</span>
+                  </div>
                 </div>
-                <div className="text-headline font-bold text-primary font-mono">
-                  {activeReport.complianceScore ?? '—'}
-                  <span className="text-caption text-muted font-normal">/100</span>
+                <div
+                  className={`h-12 w-12 rounded-xl flex items-center justify-center font-bold text-subhead ${
+                    (activeReport.complianceScore || 0) >= 85
+                      ? 'bg-accent-subtle text-accent border border-accent/40'
+                      : (activeReport.complianceScore || 0) >= 70
+                      ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                      : 'bg-red-500/10 text-red-600 border border-red-500/20'
+                  }`}
+                >
+                  {(activeReport.complianceScore || 0) >= 85 ? 'A' : (activeReport.complianceScore || 0) >= 70 ? 'B' : 'C'}
                 </div>
               </div>
-              <div
-                className={`h-12 w-12 rounded-xl flex items-center justify-center font-bold text-subhead ${
-                  (activeReport.complianceScore || 0) >= 85
-                    ? 'bg-accent-subtle text-accent border border-accent/40'
-                    : (activeReport.complianceScore || 0) >= 70
-                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                    : 'bg-red-500/10 text-red-600 border border-red-500/20'
-                }`}
-              >
-                {(activeReport.complianceScore || 0) >= 85 ? 'A' : (activeReport.complianceScore || 0) >= 70 ? 'B' : 'C'}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={handleCopyShareLink}
+                  disabled={isSharing}
+                  className="gap-2"
+                  title="Generate a public, read-only share link valid for 7 days"
+                >
+                  <Share2 className="h-4 w-4 text-accent" />
+                  <span>{isSharing ? 'Generating...' : 'Share Link'}</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className="gap-2"
+                  title="Download executive PDF audit summary"
+                >
+                  <Download className={`h-4 w-4 ${isDownloadingPdf ? 'animate-bounce' : ''}`} />
+                  <span>{isDownloadingPdf ? 'Generating...' : 'Download PDF'}</span>
+                </Button>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Share Toast Banner */}
+      {shareSuccessToast && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-between text-body transition-all">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            <span>{shareSuccessToast}</span>
+          </div>
+          <button
+            onClick={() => setShareSuccessToast(null)}
+            className="text-caption text-muted hover:text-primary font-mono text-sm px-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Failure Banner with Retry Action */}
       {activeReport.status === 'FAILED' && (

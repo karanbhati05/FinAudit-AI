@@ -39,6 +39,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import com.finaudit.api.service.AuditReportPdfService;
+import com.finaudit.api.service.ShareTokenService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+
 @RestController
 @RequestMapping("/api/reports")
 @Tag(name = "Reports", description = "Financial Report ingestion, parsing status, and auditing")
@@ -54,6 +59,9 @@ public class ReportController {
     private final AuditFindingRepository auditFindingRepository;
     private final ReportQueryService reportQueryService;
     private final CostGuardrailService costGuardrailService;
+    private final AuditReportPdfService auditReportPdfService;
+    private final ShareTokenService shareTokenService;
+    private final String frontendBaseUrl;
 
     public ReportController(
             ReportRepository reportRepository,
@@ -63,7 +71,10 @@ public class ReportController {
             AuditRunRepository auditRunRepository,
             AuditFindingRepository auditFindingRepository,
             ReportQueryService reportQueryService,
-            CostGuardrailService costGuardrailService
+            CostGuardrailService costGuardrailService,
+            AuditReportPdfService auditReportPdfService,
+            ShareTokenService shareTokenService,
+            @Value("${finaudit.share.frontend-url:https://finaudit-ai.vercel.app}") String frontendBaseUrl
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;
@@ -73,6 +84,9 @@ public class ReportController {
         this.auditFindingRepository = auditFindingRepository;
         this.reportQueryService = reportQueryService;
         this.costGuardrailService = costGuardrailService;
+        this.auditReportPdfService = auditReportPdfService;
+        this.shareTokenService = shareTokenService;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -252,5 +266,64 @@ public class ReportController {
         return reportQueryService.getReportDetail(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/export/pdf")
+    @Operation(summary = "Export completed audit report as PDF", description = "Generates a clean executive one-page PDF summary of the audit score, risk level, and findings")
+    public ResponseEntity<byte[]> exportReportPdf(@PathVariable("id") Long id) {
+        Report report = reportRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found for ID: " + id));
+
+        AuditRun auditRun = auditRunRepository.findByReportId(id).orElse(null);
+        List<AuditFinding> findings = auditFindingRepository.findByReportId(id);
+
+        byte[] pdfBytes = auditReportPdfService.generateAuditReportPdf(report, auditRun, findings);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finaudit-report-" + id + ".pdf\"")
+                .body(pdfBytes);
+    }
+
+    @PostMapping("/{id}/share")
+    @Operation(summary = "Create an unauthenticated shareable link", description = "Generates a signed expiring token for read-only guest access to an audit report")
+    public ResponseEntity<ReportShareResponse> createPublicShareLink(@PathVariable("id") Long id) {
+        Report report = reportRepository.findById(id).orElse(null);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String token = shareTokenService.generateShareToken(id);
+        String shareUrl = frontendBaseUrl + "/share/" + token;
+        long expiresInSeconds = 7 * 24 * 3600L; // 7 days
+
+        return ResponseEntity.ok(new ReportShareResponse(id, token, shareUrl, expiresInSeconds));
+    }
+
+    @GetMapping("/public/share/{token}")
+    @Operation(summary = "Public unauthenticated report view", description = "Returns read-only report detail using a signed expiring share token without requiring login")
+    public ResponseEntity<ReportDetailResponse> getPublicSharedReport(@PathVariable("token") String token) {
+        Long reportId = shareTokenService.validateAndExtractReportId(token);
+        return reportQueryService.getReportDetail(reportId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/public/share/{token}/export/pdf")
+    @Operation(summary = "Public unauthenticated PDF download", description = "Exports report PDF using a signed expiring share token without requiring login")
+    public ResponseEntity<byte[]> exportPublicSharedReportPdf(@PathVariable("token") String token) {
+        Long reportId = shareTokenService.validateAndExtractReportId(token);
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found for ID: " + reportId));
+
+        AuditRun auditRun = auditRunRepository.findByReportId(reportId).orElse(null);
+        List<AuditFinding> findings = auditFindingRepository.findByReportId(reportId);
+
+        byte[] pdfBytes = auditReportPdfService.generateAuditReportPdf(report, auditRun, findings);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finaudit-report-" + reportId + ".pdf\"")
+                .body(pdfBytes);
     }
 }

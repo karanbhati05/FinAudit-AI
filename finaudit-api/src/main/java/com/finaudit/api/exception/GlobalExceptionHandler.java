@@ -151,6 +151,21 @@ public class GlobalExceptionHandler {
                 .body(body);
     }
 
+    @ExceptionHandler(ShareLinkExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleShareLinkExpiredException(
+            ShareLinkExpiredException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Share link expired on path {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.GONE.value(),
+                "Share Link Expired",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.GONE).body(body);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
             IllegalArgumentException ex,

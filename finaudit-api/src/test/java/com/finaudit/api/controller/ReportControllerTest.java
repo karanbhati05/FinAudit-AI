@@ -6,6 +6,7 @@ import com.finaudit.api.repository.ReportLineItemRepository;
 import com.finaudit.api.repository.ReportRepository;
 import com.finaudit.api.service.ReportParsingService;
 import com.finaudit.api.service.ReportQueryService;
+import com.finaudit.api.entity.Report;
 import com.finaudit.api.storage.StorageService;
 import com.finaudit.core.model.*;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +61,12 @@ class ReportControllerTest {
 
     @MockitoBean
     private com.finaudit.api.service.CostGuardrailService costGuardrailService;
+
+    @MockitoBean
+    private com.finaudit.api.service.AuditReportPdfService auditReportPdfService;
+
+    @MockitoBean
+    private com.finaudit.api.service.ShareTokenService shareTokenService;
 
     @Test
     @DisplayName("GET /api/reports should handle pagination edge case: empty result")
@@ -139,5 +146,66 @@ class ReportControllerTest {
 
         mockMvc.perform(get("/api/reports/999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/reports/{id}/export/pdf should return 200 with application/pdf and attachment header")
+    void shouldExportReportPdf() throws Exception {
+        Report report = new Report(1L, "claim.pdf", "storage/10/claim.pdf");
+        report.setId(10L);
+        when(reportRepository.findById(10L)).thenReturn(Optional.of(report));
+        when(auditRunRepository.findByReportId(10L)).thenReturn(Optional.empty());
+        when(auditFindingRepository.findByReportId(10L)).thenReturn(List.of());
+        when(auditReportPdfService.generateAuditReportPdf(any(), any(), any())).thenReturn("%PDF-1.4 mock pdf bytes".getBytes());
+
+        mockMvc.perform(get("/api/reports/10/export/pdf"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("finaudit-report-10.pdf")));
+    }
+
+    @Test
+    @DisplayName("POST /api/reports/{id}/share should generate a public read-only link")
+    void shouldCreatePublicShareLink() throws Exception {
+        Report report = new Report(1L, "claim.pdf", "storage/10/claim.pdf");
+        report.setId(10L);
+        when(reportRepository.findById(10L)).thenReturn(Optional.of(report));
+        when(shareTokenService.generateShareToken(10L)).thenReturn("mock-share-token-xyz");
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/reports/10/share"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reportId").value(10))
+                .andExpect(jsonPath("$.token").value("mock-share-token-xyz"))
+                .andExpect(jsonPath("$.shareUrl").value(org.hamcrest.Matchers.containsString("/share/mock-share-token-xyz")));
+    }
+
+    @Test
+    @DisplayName("GET /api/reports/public/share/{token} should return public report without auth")
+    void shouldReturnPublicSharedReport() throws Exception {
+        ReportDetailResponse detail = new ReportDetailResponse(
+                10L, 1L, "claim.pdf", "storage/10/claim.pdf",
+                ReportStatus.COMPLETE, Instant.now(), Instant.now(), null,
+                88, RiskLevel.LOW, "Clean audit summary",
+                List.of(), List.of()
+        );
+
+        when(shareTokenService.validateAndExtractReportId("valid-token")).thenReturn(10L);
+        when(reportQueryService.getReportDetail(10L)).thenReturn(Optional.of(detail));
+
+        mockMvc.perform(get("/api/reports/public/share/valid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10))
+                .andExpect(jsonPath("$.complianceScore").value(88));
+    }
+
+    @Test
+    @DisplayName("GET /api/reports/public/share/{token} should return 410 GONE when share link has expired")
+    void shouldReturn410WhenShareLinkExpired() throws Exception {
+        when(shareTokenService.validateAndExtractReportId("expired-token"))
+                .thenThrow(new com.finaudit.api.exception.ShareLinkExpiredException("This public share link has expired."));
+
+        mockMvc.perform(get("/api/reports/public/share/expired-token"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.error").value("Share Link Expired"));
     }
 }
