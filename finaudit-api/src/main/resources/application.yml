@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
     name: finaudit-api
@@ -81,7 +84,10 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:postgres}}
     password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:postgres}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 30000
+      initialization-fail-timeout: 60000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
 

@@ -37,11 +37,11 @@ USER appuser
 
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+    JAVA_OPTS="-XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC -Xss512k -XX:MaxMetaspaceSize=128m -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=20s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
+  CMD curl -f http://localhost:${PORT:-8080}/actuator/health || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
