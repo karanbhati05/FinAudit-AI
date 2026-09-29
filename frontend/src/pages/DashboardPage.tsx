@@ -22,6 +22,8 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldCheck,
+  Sparkles,
+  Filter,
 } from 'lucide-react';
 
 interface DashboardSummary {
@@ -134,11 +136,7 @@ export const DashboardPage: React.FC = () => {
         setSummary(DEMO_SUMMARY);
       }
 
-      if (
-        reportsRes.status === 'fulfilled' &&
-        reportsRes.value.data?.content &&
-        reportsRes.value.data.content.length > 0
-      ) {
+      if (reportsRes.status === 'fulfilled' && reportsRes.value.data?.content !== undefined) {
         setReports(reportsRes.value.data.content);
       } else {
         setReports(DEMO_REPORTS);
@@ -429,74 +427,122 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-subtle bg-surface-subtle/50 text-caption uppercase text-muted font-medium tracking-wider">
-                <th className="px-6 py-3.5">Report</th>
-                <th className="px-6 py-3.5">Uploaded</th>
-                <th className="px-6 py-3.5">Status</th>
-                <th className="px-6 py-3.5">Score</th>
-                <th className="px-6 py-3.5">Risk Level</th>
-                <th className="px-6 py-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-subtle text-body">
-              {filteredReports.map((report) => (
-                <tr key={report.id} className="hover:bg-surface-subtle/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-accent shrink-0" />
-                      <div>
-                        <div className="font-medium text-primary text-body">
-                          {report.originalFilename}
-                        </div>
-                        <div className="text-caption text-muted font-mono">
-                          ID: #{report.id}
+        {/* Table or Empty States */}
+        {reports.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center">
+            <div className="h-14 w-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-4 shadow-sm">
+              <UploadCloud className="h-7 w-7" />
+            </div>
+            <h3 className="text-title font-semibold text-primary">No audit reports yet</h3>
+            <p className="text-body text-secondary mt-2 max-w-md">
+              Upload your first expense claim, travel ledger, or vendor invoice to trigger automated extraction and policy compliance auditing.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link to="/upload">
+                <Button variant="primary" size="md">
+                  <UploadCloud className="h-4 w-4 mr-2" />
+                  <span>Upload Your First Report</span>
+                </Button>
+              </Link>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setReports(DEMO_REPORTS)}
+              >
+                <Sparkles className="h-4 w-4 mr-2 text-accent" />
+                <span>Load Sample Dataset</span>
+              </Button>
+            </div>
+          </div>
+        ) : filteredReports.length === 0 ? (
+          <div className="p-12 text-center flex flex-col items-center justify-center">
+            <div className="h-12 w-12 rounded-xl bg-surface-subtle border border-subtle flex items-center justify-center text-secondary mb-3">
+              <Filter className="h-5 w-5 text-muted" />
+            </div>
+            <h3 className="text-subhead font-medium text-primary">
+              No {filterRisk.toLowerCase()} risk reports found
+            </h3>
+            <p className="text-caption text-secondary mt-1">
+              None of your uploaded reports match the current risk filter.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-4"
+              onClick={() => setFilterRisk('ALL')}
+            >
+              Reset Filter
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-subtle bg-surface-subtle/50 text-caption uppercase text-muted font-medium tracking-wider">
+                  <th className="px-6 py-3.5">Report</th>
+                  <th className="px-6 py-3.5">Uploaded</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Score</th>
+                  <th className="px-6 py-3.5">Risk Level</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-subtle text-body">
+                {filteredReports.map((report) => (
+                  <tr key={report.id} className="hover:bg-surface-subtle/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-accent shrink-0" />
+                        <div>
+                          <div className="font-medium text-primary text-body">
+                            {report.originalFilename}
+                          </div>
+                          <div className="text-caption text-muted font-mono">
+                            ID: #{report.id}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-caption text-secondary font-mono">
-                    {new Date(report.uploadedAt).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge status={report.status}>{report.status}</Badge>
-                  </td>
-                  <td className="px-6 py-4">
-                    {report.complianceScore !== undefined && report.complianceScore !== null ? (
-                      <span className="font-semibold text-primary font-mono text-body">
-                        {report.complianceScore}/100
-                      </span>
-                    ) : (
-                      <span className="text-caption text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {report.riskLevel ? (
-                      <Badge riskLevel={report.riskLevel}>{report.riskLevel}</Badge>
-                    ) : (
-                      <span className="text-caption text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link to={`/reports/${report.id}`}>
-                      <Button variant="ghost" size="sm" className="gap-1.5">
-                        <span>Inspect</span>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </td>
+                    <td className="px-6 py-4 text-caption text-secondary font-mono">
+                      {new Date(report.uploadedAt).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge status={report.status}>{report.status}</Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      {report.complianceScore !== undefined && report.complianceScore !== null ? (
+                        <span className="font-semibold text-primary font-mono text-body">
+                          {report.complianceScore}/100
+                        </span>
+                      ) : (
+                        <span className="text-caption text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {report.riskLevel ? (
+                        <Badge riskLevel={report.riskLevel}>{report.riskLevel}</Badge>
+                      ) : (
+                        <span className="text-caption text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link to={`/reports/${report.id}`}>
+                        <Button variant="ghost" size="sm" className="gap-1.5">
+                          <span>Inspect</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

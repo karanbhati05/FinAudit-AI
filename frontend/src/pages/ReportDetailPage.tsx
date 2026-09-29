@@ -3,10 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import {
   ArrowLeft,
   AlertTriangle,
+  AlertCircle,
+  RefreshCw,
+  FileText,
   ChevronDown,
   ChevronUp,
   Cpu,
@@ -171,27 +175,54 @@ export const ReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [expandedFindings, setExpandedFindings] = useState<Record<number, boolean>>({ 1: true });
 
-  useEffect(() => {
-    const fetchReport = async () => {
-      try {
-        setIsLoading(true);
-        const res = await api.get<ReportDetail>(`/reports/${id}`);
-        setReport(res.data);
-      } catch (err) {
-        console.warn('Backend not responding or report not found, falling back to demo detail', err);
-        setReport({
-          ...DEMO_DETAIL,
-          id: id ? parseInt(id, 10) : DEMO_DETAIL.id,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchReport = async () => {
+    try {
+      const res = await api.get<ReportDetail>(`/reports/${id}`);
+      setReport(res.data);
+    } catch (err) {
+      console.warn('Backend not responding or report not found, falling back to demo detail', err);
+      setReport({
+        ...DEMO_DETAIL,
+        id: id ? parseInt(id, 10) : DEMO_DETAIL.id,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    setIsLoading(true);
     fetchReport();
   }, [id]);
+
+  // Polling watchdog for in-progress pipeline
+  useEffect(() => {
+    if (!report) return;
+    if (['UPLOADED', 'PARSING', 'AUDITING'].includes(report.status)) {
+      const timer = setTimeout(() => {
+        fetchReport();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [report?.status, id]);
+
+  const handleRetry = async () => {
+    if (!id) return;
+    try {
+      setIsRetrying(true);
+      await api.post(`/reports/${id}/retry`);
+      await fetchReport();
+    } catch (err: any) {
+      console.error('Failed to trigger audit retry', err);
+      const msg = err?.response?.data?.message || 'Could not retry audit pipeline. Please check server status.';
+      alert(msg);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   const toggleFindingExpansion = (findingId: number) => {
     setExpandedFindings((prev) => ({
@@ -281,6 +312,54 @@ export const ReportDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Failure Banner with Retry Action */}
+      {activeReport.status === 'FAILED' && (
+        <div className="p-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 mb-8 space-y-3">
+          <div className="flex items-center gap-3 font-semibold text-lg">
+            <AlertCircle className="h-6 w-6 text-red-500 shrink-0" />
+            <span>Audit Processing Failed</span>
+          </div>
+          <p className="text-body text-secondary">
+            We couldn&apos;t complete the AI compliance audit on this file.
+            {activeReport.errorReason && (
+              <span className="block mt-1 font-mono text-caption text-red-500">
+                Reason: {activeReport.errorReason}
+              </span>
+            )}
+          </p>
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+              <span>{isRetrying ? 'Re-initiating Pipeline...' : 'Retry Audit'}</span>
+            </Button>
+            <Link to="/upload">
+              <Button variant="secondary" size="sm">
+                Upload Different File
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* In-Progress Watchdog Banner */}
+      {['UPLOADED', 'PARSING', 'AUDITING'].includes(activeReport.status) && (
+        <div className="p-6 rounded-xl bg-accent/10 border border-accent/20 mb-8 space-y-3">
+          <div className="flex items-center gap-3 font-semibold text-lg text-accent">
+            <RefreshCw className="h-5 w-5 animate-spin text-accent" />
+            <span>Audit In Progress ({activeReport.status})</span>
+          </div>
+          <p className="text-body text-secondary">
+            The automated pipeline is parsing document tables, cross-referencing company policy embeddings, and executing RAG compliance audits. This page will update automatically when processing concludes.
+          </p>
+        </div>
+      )}
 
       {/* Executive Summary Card */}
       {activeReport.auditSummary && (
@@ -424,21 +503,30 @@ export const ReportDetailPage: React.FC = () => {
           </p>
         </div>
 
-        <Card padding="none" className="border-subtle bg-surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-subtle bg-surface-subtle/50 text-caption uppercase text-muted font-medium tracking-wider">
-                  <th className="px-6 py-3.5">#</th>
-                  <th className="px-6 py-3.5">Invoice ID</th>
-                  <th className="px-6 py-3.5">Vendor</th>
-                  <th className="px-6 py-3.5">Category</th>
-                  <th className="px-6 py-3.5">Amount</th>
-                  <th className="px-6 py-3.5 text-right">Audit Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-subtle text-body">
-                {activeReport.lineItems.map((item, idx) => {
+        {(!activeReport.lineItems || activeReport.lineItems.length === 0) ? (
+          <Card padding="lg" className="text-center border-subtle bg-surface">
+            <FileText className="h-8 w-8 text-secondary mx-auto mb-3 opacity-60" />
+            <h3 className="text-subhead font-medium text-primary">No Extracted Line Items</h3>
+            <p className="text-caption text-secondary mt-1 max-w-md mx-auto">
+              No individual invoice or transaction items were detected in this document. The file may be an unformatted text or summary file.
+            </p>
+          </Card>
+        ) : (
+          <Card padding="none" className="border-subtle bg-surface overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-subtle bg-surface-subtle/50 text-caption uppercase text-muted font-medium tracking-wider">
+                    <th className="px-6 py-3.5">#</th>
+                    <th className="px-6 py-3.5">Invoice ID</th>
+                    <th className="px-6 py-3.5">Vendor</th>
+                    <th className="px-6 py-3.5">Category</th>
+                    <th className="px-6 py-3.5">Amount</th>
+                    <th className="px-6 py-3.5 text-right">Audit Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-subtle text-body">
+                  {activeReport.lineItems.map((item, idx) => {
                   const flaggedFinding = findingsByLineItem[item.id];
 
                   return (
@@ -487,6 +575,7 @@ export const ReportDetailPage: React.FC = () => {
             </table>
           </div>
         </Card>
+        )}
       </div>
     </div>
   );
