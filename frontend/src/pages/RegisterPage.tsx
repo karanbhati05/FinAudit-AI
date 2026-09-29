@@ -13,7 +13,7 @@ export const RegisterPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register } = useAuth();
+  const { register, loginDemo } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +119,36 @@ export const RegisterPage: React.FC = () => {
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </form>
+
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-subtle" />
+            </div>
+            <span className="relative px-3 bg-surface text-caption text-muted">
+              or skip registration
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            className="w-full text-caption"
+            onClick={async () => {
+              try {
+                setIsLoading(true);
+                setError(null);
+                await loginDemo('AUDITOR');
+                navigate('/dashboard');
+              } catch (err: any) {
+                setError(err?.response?.data?.message || 'Demo login failed.');
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+          >
+            Launch Instant Demo Account (Zero Friction)
+          </Button>
 
           <div className="text-center mt-6 pt-6 border-t border-subtle">
             <p className="text-caption text-secondary">

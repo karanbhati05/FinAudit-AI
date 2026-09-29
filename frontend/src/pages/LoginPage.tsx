@@ -36,9 +36,17 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDemoSignIn = () => {
-    loginDemo('AUDITOR');
-    navigate('/dashboard');
+  const handleDemoSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await loginDemo('AUDITOR');
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Demo login failed.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
-import { Sun, Moon, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, Menu, X } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { resolvedTheme, toggleTheme } = useTheme();
   const { isAuthenticated, user, logout, loginDemo } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -102,8 +103,66 @@ export const Navbar: React.FC = () => {
               </Link>
             </div>
           )}
+
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label="Toggle mobile menu"
+            className="md:hidden h-9 w-9 rounded-lg border border-subtle bg-surface-subtle flex items-center justify-center text-secondary hover:text-primary transition-colors cursor-pointer"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Navigation Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-subtle bg-surface/95 backdrop-blur-md px-6 py-4 space-y-3">
+          <Link
+            to="/"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block text-body py-1.5 transition-colors ${
+              isActive('/') ? 'text-primary font-medium' : 'text-secondary hover:text-primary'
+            }`}
+          >
+            Overview
+          </Link>
+          <Link
+            to="/upload"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block text-body py-1.5 transition-colors ${
+              isActive('/upload') ? 'text-primary font-medium' : 'text-secondary hover:text-primary'
+            }`}
+          >
+            Upload Report
+          </Link>
+          <Link
+            to="/dashboard"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`block text-body py-1.5 transition-colors ${
+              isActive('/dashboard') ? 'text-primary font-medium' : 'text-secondary hover:text-primary'
+            }`}
+          >
+            Audit Dashboard
+          </Link>
+
+          {!isAuthenticated && (
+            <div className="pt-2 border-t border-subtle flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setMobileMenuOpen(false);
+                  await loginDemo('AUDITOR');
+                  navigate('/dashboard');
+                }}
+                className="w-full text-center text-caption font-medium py-2 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors cursor-pointer"
+              >
+                Instant Live Demo
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };
