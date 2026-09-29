@@ -42,4 +42,10 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.refreshToken(request));
     }
+
+    @PostMapping("/demo")
+    @Operation(summary = "One-click Demo login", description = "Authenticates directly into the public demo account with pre-audited reports")
+    public ResponseEntity<AuthResponse> demoLogin() {
+        return ResponseEntity.ok(authService.demoLogin());
+    }
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
@@ -7,8 +7,9 @@ import { Sun, Moon, ShieldCheck } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const { resolvedTheme, toggleTheme } = useTheme();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, loginDemo } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -79,6 +80,16 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await loginDemo('AUDITOR');
+                  navigate('/dashboard');
+                }}
+                className="hidden sm:inline-flex items-center text-caption font-medium px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors cursor-pointer"
+              >
+                <span>View Demo</span>
+              </button>
               <Link to="/login">
                 <Button variant="ghost" size="sm">
                   Sign In

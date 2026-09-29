@@ -1,5 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -15,6 +16,20 @@ import {
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
+  const { loginDemo } = useAuth();
+  const navigate = useNavigate();
+  const [isLoggingInDemo, setIsLoggingInDemo] = useState(false);
+
+  const handleViewDemo = async () => {
+    setIsLoggingInDemo(true);
+    try {
+      await loginDemo('AUDITOR');
+      navigate('/dashboard');
+    } finally {
+      setIsLoggingInDemo(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
@@ -39,15 +54,20 @@ export const LandingPage: React.FC = () => {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto group shadow-md"
+                onClick={handleViewDemo}
+                isLoading={isLoggingInDemo}
+              >
+                <Sparkles className="h-4 w-4 mr-2 text-white" />
+                <span>View Live Demo (Pre-Audited Reports)</span>
+                <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+              </Button>
               <Link to="/upload">
-                <Button variant="primary" size="lg" className="w-full sm:w-auto group">
-                  <span>Audit an Expense Report</span>
-                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
-                </Button>
-              </Link>
-              <Link to="/dashboard">
                 <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-                  View Live Dashboard
+                  Upload & Audit File
                 </Button>
               </Link>
             </div>

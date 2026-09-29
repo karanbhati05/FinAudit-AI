@@ -13,7 +13,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, role?: 'AUDITOR' | 'ADMIN' | 'VIEWER') => Promise<void>;
-  loginDemo: (role?: 'AUDITOR' | 'ADMIN' | 'VIEWER') => void;
+  loginDemo: (role?: 'AUDITOR' | 'ADMIN' | 'VIEWER') => Promise<void>;
   logout: () => void;
 }
 
@@ -42,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       updateToken(receivedToken, receivedUser);
     } catch (err: any) {
-      // If backend auth endpoint isn't live yet (Milestone 9 follows Milestone 8), allow seamless demo fallback
       if (err.code === 'ERR_NETWORK' || err.response?.status === 404) {
         console.warn('Auth endpoint not reachable yet, falling back to simulated session');
         updateToken('simulated-jwt-token', {
@@ -83,11 +82,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginDemo = (role: 'AUDITOR' | 'ADMIN' | 'VIEWER' = 'AUDITOR') => {
-    updateToken('demo-auditor-jwt-token', {
-      email: 'auditor@finaudit.ai',
-      role,
-    });
+  const loginDemo = async (role: 'AUDITOR' | 'ADMIN' | 'VIEWER' = 'AUDITOR') => {
+    try {
+      const response = await api.post('/auth/demo');
+      const data = response.data;
+      const receivedToken = data.token || data.accessToken;
+      const receivedUser: User = {
+        id: data.id,
+        email: data.email || 'demo@finaudit.ai',
+        role: data.role || role,
+      };
+      updateToken(receivedToken, receivedUser);
+    } catch (err) {
+      console.warn('Backend demo auth not available, falling back to simulated session', err);
+      updateToken('demo-auditor-jwt-token', {
+        email: 'demo@finaudit.ai',
+        role,
+      });
+    }
   };
 
   const logout = () => {

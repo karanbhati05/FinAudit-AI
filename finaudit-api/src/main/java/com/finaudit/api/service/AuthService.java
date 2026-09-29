@@ -103,4 +103,25 @@ public class AuthService {
                 jwtService.getJwtExpirationMs()
         );
     }
+
+    @Transactional
+    public AuthResponse demoLogin() {
+        User user = userRepository.findByEmail("demo@finaudit.ai")
+                .orElseGet(() -> {
+                    User demoUser = new User("demo@finaudit.ai", passwordEncoder.encode("DemoAuditor2026!"), UserRole.AUDITOR);
+                    return userRepository.save(demoUser);
+                });
+
+        String token = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        return new AuthResponse(
+                token,
+                refreshToken,
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                jwtService.getJwtExpirationMs()
+        );
+    }
 }
