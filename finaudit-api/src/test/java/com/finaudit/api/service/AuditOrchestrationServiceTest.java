@@ -185,4 +185,31 @@ class AuditOrchestrationServiceTest {
         ));
         assertThat(report.getStatus()).isEqualTo(ReportStatus.COMPLETE);
     }
+
+    @Test
+    @DisplayName("Should mark report FAILED and set errorReason when LLM or prompt fails")
+    void shouldMarkReportFailedWhenExceptionOccursDuringAudit() {
+        Report report = new Report(3L, "broken_claim.pdf", "storage/reports/3/broken_claim.pdf");
+        report.setId(3L);
+        report.setStatus(ReportStatus.AUDITING);
+
+        ReportLineItem item = new ReportLineItem(
+                3L, "INV-999", "Bad Vendor", new BigDecimal("500.00"), "USD",
+                "TRAVEL", "Flight booking", 1
+        );
+        item.setId(30L);
+
+        when(reportRepository.findById(3L)).thenReturn(Optional.of(report));
+        when(lineItemRepository.findByReportId(3L)).thenReturn(List.of(item));
+        when(policySearchService.searchPolicies(anyString(), anyInt(), anyDouble()))
+                .thenThrow(new RuntimeException("Simulated Vector DB Connection Failure"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class, () -> {
+            orchestrationService.runAudit(3L);
+        });
+
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.FAILED);
+        assertThat(report.getErrorReason()).contains("Simulated Vector DB Connection Failure");
+        verify(reportRepository).save(report);
+    }
 }

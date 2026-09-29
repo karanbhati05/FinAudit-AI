@@ -114,7 +114,8 @@ public class AuditOrchestrationService {
             return cleanRun;
         }
 
-        // --- Step 1: Policy Retrieval (RAG) ---
+        try {
+            // --- Step 1: Policy Retrieval (RAG) ---
         // Cost & Latency Decision:
         // Instead of triggering N separate vector searches and LLM calls per line item, we aggregate
         // line item descriptions and categories to retrieve relevant policy chunks in batch.
@@ -252,9 +253,16 @@ public class AuditOrchestrationService {
         report.setAuditedAt(Instant.now());
         reportRepository.save(report);
 
-        log.info("Successfully audited report ID: {}. Score: {}, Risk: {}, Findings: {}",
-                reportId, auditRun.getComplianceScore(), auditRun.getRiskLevel(), auditResult.flaggedItems().size());
+            log.info("Successfully audited report ID: {}. Score: {}, Risk: {}, Findings: {}",
+                    reportId, auditRun.getComplianceScore(), auditRun.getRiskLevel(), auditResult.flaggedItems().size());
 
-        return auditRun;
+            return auditRun;
+        } catch (Exception e) {
+            log.error("Failed to execute RAG audit for report ID: {}", reportId, e);
+            report.setStatus(ReportStatus.FAILED);
+            report.setErrorReason("Audit failed: " + (e.getMessage() != null ? e.getMessage() : "Unexpected error during AI audit."));
+            reportRepository.save(report);
+            throw e;
+        }
     }
 }

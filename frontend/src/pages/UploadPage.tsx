@@ -350,18 +350,35 @@ Line Items:
                 {auditStatus.errorReason && (
                   <p className="text-caption">{auditStatus.errorReason}</p>
                 )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setAuditStatus(null);
-                    setReportId(null);
-                  }}
-                  className="mt-2"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again
-                </Button>
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        setIsUploading(true);
+                        await api.post(`/reports/${reportId}/retry`);
+                        setAuditStatus((prev) => prev ? { ...prev, status: 'UPLOADED', errorReason: undefined } : null);
+                      } catch (err: any) {
+                        alert(err?.response?.data?.message || 'Failed to retry audit.');
+                        setIsUploading(false);
+                      }
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Retry Audit Pipeline
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setAuditStatus(null);
+                      setReportId(null);
+                    }}
+                  >
+                    Upload New File
+                  </Button>
+                </div>
               </div>
             )}
 
