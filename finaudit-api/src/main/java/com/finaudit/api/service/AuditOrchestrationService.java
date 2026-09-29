@@ -21,6 +21,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.finaudit.api.tool.DuplicateInvoiceDetectionTool;
+import org.slf4j.MDC;
+import java.util.UUID;
 
 @Service
 public class AuditOrchestrationService {
@@ -96,25 +98,34 @@ public class AuditOrchestrationService {
 
     @Transactional
     public AuditRun runAudit(Long reportId) {
-        log.info("Initiating RAG-grounded audit orchestration for report ID: {}", reportId);
-        Instant startedAt = Instant.now();
+        return runAudit(reportId, null);
+    }
 
-        Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("Report not found for ID: " + reportId));
-
-        List<ReportLineItem> lineItems = lineItemRepository.findByReportId(reportId);
-        if (lineItems.isEmpty()) {
-            log.warn("Report ID: {} has no line items. Recording empty audit run.", reportId);
-            AuditRun cleanRun = new AuditRun(reportId, 100, RiskLevel.LOW, "{\"summary\":\"No line items present in report.\"}");
-            cleanRun.setCompletedAt(Instant.now());
-            cleanRun = auditRunRepository.save(cleanRun);
-            report.setStatus(ReportStatus.COMPLETE);
-            report.setAuditedAt(Instant.now());
-            reportRepository.save(report);
-            return cleanRun;
-        }
+    @Transactional
+    public AuditRun runAudit(Long reportId, String correlationId) {
+        String effectiveCorrelationId = correlationId != null ? correlationId : UUID.randomUUID().toString();
+        MDC.put("reportId", String.valueOf(reportId));
+        MDC.put("correlationId", effectiveCorrelationId);
 
         try {
+            log.info("Initiating RAG-grounded audit orchestration for report ID: {}", reportId);
+            Instant startedAt = Instant.now();
+
+            Report report = reportRepository.findById(reportId)
+                    .orElseThrow(() -> new IllegalArgumentException("Report not found for ID: " + reportId));
+
+            List<ReportLineItem> lineItems = lineItemRepository.findByReportId(reportId);
+            if (lineItems.isEmpty()) {
+                log.warn("Report ID: {} has no line items. Recording empty audit run.", reportId);
+                AuditRun cleanRun = new AuditRun(reportId, 100, RiskLevel.LOW, "{\"summary\":\"No line items present in report.\"}");
+                cleanRun.setCompletedAt(Instant.now());
+                cleanRun = auditRunRepository.save(cleanRun);
+                report.setStatus(ReportStatus.COMPLETE);
+                report.setAuditedAt(Instant.now());
+                reportRepository.save(report);
+                return cleanRun;
+            }
+
             // --- Step 1: Policy Retrieval (RAG) ---
         // Cost & Latency Decision:
         // Instead of triggering N separate vector searches and LLM calls per line item, we aggregate
@@ -259,10 +270,20 @@ public class AuditOrchestrationService {
             return auditRun;
         } catch (Exception e) {
             log.error("Failed to execute RAG audit for report ID: {}", reportId, e);
-            report.setStatus(ReportStatus.FAILED);
-            report.setErrorReason("Audit failed: " + (e.getMessage() != null ? e.getMessage() : "Unexpected error during AI audit."));
-            reportRepository.save(report);
+            try {
+                Report failedReport = reportRepository.findById(reportId).orElse(null);
+                if (failedReport != null) {
+                    failedReport.setStatus(ReportStatus.FAILED);
+                    failedReport.setErrorReason("Audit failed: " + (e.getMessage() != null ? e.getMessage() : "Unexpected error during AI audit."));
+                    reportRepository.save(failedReport);
+                }
+            } catch (Exception inner) {
+                log.error("Failed to mark report ID: {} as FAILED", reportId, inner);
+            }
             throw e;
+        } finally {
+            MDC.remove("reportId");
+            MDC.remove("correlationId");
         }
     }
 }

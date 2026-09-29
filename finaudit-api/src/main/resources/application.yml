@@ -41,6 +41,14 @@ management:
       exposure:
         include: health,info,metrics
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [correlationId=%X{correlationId:-none} reportId=%X{reportId:-none}] - %msg%n"
+
+sentry:
+  dsn: ${SENTRY_DSN:}
+  traces-sample-rate: 1.0
+
 finaudit:
   security:
     jwt:

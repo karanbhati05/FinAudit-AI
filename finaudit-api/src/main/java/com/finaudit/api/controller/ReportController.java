@@ -34,11 +34,17 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 @RestController
 @RequestMapping("/api/reports")
 @Tag(name = "Reports", description = "Financial Report ingestion, parsing status, and auditing")
 public class ReportController {
+
+    private static final Logger log = LoggerFactory.getLogger(ReportController.class);
 
     private final ReportRepository reportRepository;
     private final ReportLineItemRepository lineItemRepository;
@@ -78,57 +84,79 @@ public class ReportController {
             jakarta.servlet.http.HttpServletRequest request,
             java.security.Principal principal
     ) throws IOException {
-        // 1. Guardrail validation: file size, extension, magic bytes (PDF %PDF- / clean text)
-        if (costGuardrailService != null) {
-            costGuardrailService.validateUploadFile(file);
+        String correlationId = UUID.randomUUID().toString();
+        MDC.put("correlationId", correlationId);
+
+        try {
+            // 1. Guardrail validation: file size, extension, magic bytes (PDF %PDF- / clean text)
+            if (costGuardrailService != null) {
+                costGuardrailService.validateUploadFile(file);
+            }
+
+            // 2. Guardrail rate limiting: max 5/user/day, max 10/IP/day, max 100 Gemini calls circuit breaker
+            String clientIp = extractClientIp(request);
+            String userIdentifier = principal != null ? principal.getName() : (ownerId != null ? "user-" + ownerId : clientIp);
+            if (costGuardrailService != null) {
+                costGuardrailService.enforceUploadRateLimits(userIdentifier, clientIp);
+            }
+
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename == null || originalFilename.isBlank()) {
+                originalFilename = "uploaded_report.pdf";
+            }
+
+            // 3. Initial entity save to generate report ID
+            Report report = new Report(ownerId, originalFilename, "pending");
+            report = reportRepository.save(report);
+            MDC.put("reportId", String.valueOf(report.getId()));
+
+            log.info("Report upload received: id={}, filename={}, size={} bytes, user={}, ip={}",
+                    report.getId(), originalFilename, file.getSize(), userIdentifier, clientIp);
+
+            // 4. Save physical file to storage/reports/{reportId}/
+            Path storedPath = storageService.store(report.getId(), originalFilename, file.getInputStream());
+            report.setStoragePath(storedPath.toString());
+            report.setStatus(ReportStatus.UPLOADED);
+            reportRepository.save(report);
+
+            // 5. Track successful upload count towards daily limits
+            if (costGuardrailService != null) {
+                costGuardrailService.recordUpload(userIdentifier, clientIp);
+            }
+
+            // 6. Trigger asynchronous parsing on virtual threads
+            reportParsingService.parseReportAsync(report.getId(), correlationId);
+
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body(new ReportUploadResponse(report.getId(), "Report uploaded successfully. Parsing in progress."));
+        } finally {
+            MDC.remove("reportId");
+            MDC.remove("correlationId");
         }
-
-        // 2. Guardrail rate limiting: max 5/user/day, max 10/IP/day, max 100 Gemini calls circuit breaker
-        String clientIp = extractClientIp(request);
-        String userIdentifier = principal != null ? principal.getName() : (ownerId != null ? "user-" + ownerId : clientIp);
-        if (costGuardrailService != null) {
-            costGuardrailService.enforceUploadRateLimits(userIdentifier, clientIp);
-        }
-
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || originalFilename.isBlank()) {
-            originalFilename = "uploaded_report.pdf";
-        }
-
-        // 3. Initial entity save to generate report ID
-        Report report = new Report(ownerId, originalFilename, "pending");
-        report = reportRepository.save(report);
-
-        // 4. Save physical file to storage/reports/{reportId}/
-        Path storedPath = storageService.store(report.getId(), originalFilename, file.getInputStream());
-        report.setStoragePath(storedPath.toString());
-        report.setStatus(ReportStatus.UPLOADED);
-        reportRepository.save(report);
-
-        // 5. Track successful upload count towards daily limits
-        if (costGuardrailService != null) {
-            costGuardrailService.recordUpload(userIdentifier, clientIp);
-        }
-
-        // 6. Trigger asynchronous parsing on virtual threads
-        reportParsingService.parseReportAsync(report.getId());
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(new ReportUploadResponse(report.getId(), "Report uploaded successfully. Parsing in progress."));
     }
 
     @PostMapping("/{id}/retry")
     @Operation(summary = "Retry a failed report audit", description = "Re-initiates the parsing and audit pipeline for a failed report")
     public ResponseEntity<ReportStatusResponse> retryReportAudit(@PathVariable("id") Long id) {
-        Report report = reportRepository.findById(id).orElse(null);
-        if (report == null) {
-            return ResponseEntity.notFound().build();
+        String correlationId = UUID.randomUUID().toString();
+        MDC.put("reportId", String.valueOf(id));
+        MDC.put("correlationId", correlationId);
+
+        try {
+            Report report = reportRepository.findById(id).orElse(null);
+            if (report == null) {
+                return ResponseEntity.notFound().build();
+            }
+            log.info("Retrying report audit for report ID: {}", id);
+            report.setStatus(ReportStatus.UPLOADED);
+            report.setErrorReason(null);
+            reportRepository.save(report);
+            reportParsingService.parseReportAsync(id, correlationId);
+            return ResponseEntity.ok(new ReportStatusResponse(id, ReportStatus.UPLOADED, 0, null));
+        } finally {
+            MDC.remove("reportId");
+            MDC.remove("correlationId");
         }
-        report.setStatus(ReportStatus.UPLOADED);
-        report.setErrorReason(null);
-        reportRepository.save(report);
-        reportParsingService.parseReportAsync(id);
-        return ResponseEntity.ok(new ReportStatusResponse(id, ReportStatus.UPLOADED, 0, null));
     }
 
     private String extractClientIp(jakarta.servlet.http.HttpServletRequest request) {

@@ -171,6 +171,11 @@ public class GlobalExceptionHandler {
             HttpServletRequest request
     ) {
         log.error("Unhandled exception on path {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        try {
+            io.sentry.Sentry.captureException(ex);
+        } catch (Throwable ignored) {
+            // Sentry uninitialized or inactive
+        }
         ErrorResponse body = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",

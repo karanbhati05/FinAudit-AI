@@ -20,4 +20,10 @@ public interface AuditRunRepository extends JpaRepository<AuditRun, Long> {
 
     @Query("SELECT a.riskLevel, COUNT(a) FROM AuditRun a GROUP BY a.riskLevel")
     List<Object[]> countByRiskLevelGrouped();
+
+    @Query("SELECT a FROM AuditRun a WHERE a.completedAt IS NOT NULL AND a.startedAt IS NOT NULL AND a.startedAt >= :cutoff")
+    List<AuditRun> findCompletedRunsAfter(java.time.Instant cutoff);
+
+    @Query("SELECT a FROM AuditRun a WHERE a.completedAt IS NOT NULL AND a.startedAt IS NOT NULL")
+    List<AuditRun> findAllCompletedRuns();
 }

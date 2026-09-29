@@ -1,0 +1,33 @@
+name: Production Uptime Heartbeat
+
+on:
+  schedule:
+    # Run every 6 hours to ensure production endpoint health
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Synthetic Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Actuator Health
+        run: |
+          echo "Pinging FinAudit API Health..."
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" https://finaudit-api-4yu2.onrender.com/actuator/health)
+          echo "HTTP Status: $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "API health check failed with status $HTTP_STATUS"
+            exit 1
+          fi
+
+      - name: Ping Frontend Vercel Deployment
+        run: |
+          echo "Pinging FinAudit Frontend..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://finaudit-ai.vercel.app/)
+          echo "HTTP Status: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Frontend ping failed with status $HTTP_STATUS"
+            exit 1
+          fi

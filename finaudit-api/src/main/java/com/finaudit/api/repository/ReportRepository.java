@@ -15,4 +15,10 @@ public interface ReportRepository extends JpaRepository<Report, Long>, JpaSpecif
     List<Report> findByOwnerId(Long ownerId);
     List<Report> findByStatus(ReportStatus status);
     List<Report> findByStatusInAndUploadedAtBefore(Collection<ReportStatus> statuses, Instant cutoff);
+
+    long countByUploadedAtAfter(Instant cutoff);
+    long countByStatusAndUploadedAtAfter(ReportStatus status, Instant cutoff);
+
+    List<Report> findByUploadedAtBeforeAndOwnerIdNot(Instant cutoff, Long ownerId);
+    List<Report> findByUploadedAtBefore(Instant cutoff);
 }

@@ -20,6 +20,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.MDC;
+import java.util.UUID;
+
 @Service
 public class ReportParsingService {
 
@@ -79,11 +82,21 @@ public class ReportParsingService {
     @Async
     @Transactional
     public CompletableFuture<Void> parseReportAsync(Long reportId) {
-        log.info("Starting asynchronous parsing for report ID: {}", reportId);
-        Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("Report not found: " + reportId));
+        return parseReportAsync(reportId, null);
+    }
+
+    @Async
+    @Transactional
+    public CompletableFuture<Void> parseReportAsync(Long reportId, String correlationId) {
+        String effectiveCorrelationId = correlationId != null ? correlationId : UUID.randomUUID().toString();
+        MDC.put("reportId", String.valueOf(reportId));
+        MDC.put("correlationId", effectiveCorrelationId);
 
         try {
+            log.info("Starting asynchronous parsing for report ID: {}", reportId);
+            Report report = reportRepository.findById(reportId)
+                    .orElseThrow(() -> new IllegalArgumentException("Report not found: " + reportId));
+
             report.setStatus(ReportStatus.PARSING);
             report.setErrorReason(null);
             reportRepository.save(report);
@@ -145,14 +158,24 @@ public class ReportParsingService {
             // 5. Automatically trigger runAudit as the next step in the async pipeline
             if (auditOrchestrationService != null) {
                 log.info("Automatically launching RAG audit for report ID: {}", reportId);
-                auditOrchestrationService.runAudit(reportId);
+                auditOrchestrationService.runAudit(reportId, effectiveCorrelationId);
             }
 
         } catch (Exception e) {
             log.error("Failed to parse report ID: {}", reportId, e);
-            report.setStatus(ReportStatus.FAILED);
-            report.setErrorReason(e.getMessage());
-            reportRepository.save(report);
+            try {
+                Report report = reportRepository.findById(reportId).orElse(null);
+                if (report != null) {
+                    report.setStatus(ReportStatus.FAILED);
+                    report.setErrorReason(e.getMessage());
+                    reportRepository.save(report);
+                }
+            } catch (Exception inner) {
+                log.error("Error setting FAILED status for report ID: {}", reportId, inner);
+            }
+        } finally {
+            MDC.remove("reportId");
+            MDC.remove("correlationId");
         }
 
         return CompletableFuture.completedFuture(null);

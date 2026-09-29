@@ -209,6 +209,14 @@ public class CostGuardrailService {
         dailyGeminiCallCount.set(0);
     }
 
+    public int getActiveAuditPermits() {
+        return Math.max(0, DEFAULT_MAX_CONCURRENT_AUDITS - auditSemaphore.availablePermits());
+    }
+
+    public int getMaxConcurrentAudits() {
+        return DEFAULT_MAX_CONCURRENT_AUDITS;
+    }
+
     public int getDailyGeminiCallCount() {
         return dailyGeminiCallCount.get();
     }
