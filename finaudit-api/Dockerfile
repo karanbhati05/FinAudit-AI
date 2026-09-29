@@ -2,20 +2,17 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS builder
 WORKDIR /workspace
 
-# Copy parent and module POMs to leverage Docker layer caching for dependencies
+# Copy parent and module POMs
 COPY pom.xml ./
 COPY finaudit-core/pom.xml ./finaudit-core/
 COPY finaudit-api/pom.xml ./finaudit-api/
-
-# Download dependencies
-RUN mvn dependency:go-offline -B -pl finaudit-api -am || true
 
 # Copy source trees
 COPY finaudit-core/src ./finaudit-core/src
 COPY finaudit-api/src ./finaudit-api/src
 
 # Package application jar (unit/integration tests executed during CI pipeline)
-RUN mvn clean package -DskipTests -B -pl finaudit-api -am
+RUN mvn clean install -DskipTests -B -pl finaudit-api -am
 
 # Stage 2: Minimal hardened JRE runtime
 FROM eclipse-temurin:21-jre-jammy
@@ -30,7 +27,7 @@ RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin appu
 WORKDIR /app
 
 # Copy executable jar from builder stage
-COPY --from=builder /workspace/finaudit-api/target/finaudit-api-*.jar /app/app.jar
+COPY --from=builder /workspace/finaudit-api/target/finaudit-api-0.0.1-SNAPSHOT.jar /app/app.jar
 
 # Enforce secure ownership
 RUN chown -R appuser:appgroup /app
@@ -40,7 +37,7 @@ USER appuser
 
 ENV PORT=8080 \
     SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-XX:+UseVirtualThreads -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+    JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
 
 EXPOSE 8080
 
