@@ -274,7 +274,7 @@ public class AuditOrchestrationService {
                 Report failedReport = reportRepository.findById(reportId).orElse(null);
                 if (failedReport != null) {
                     failedReport.setStatus(ReportStatus.FAILED);
-                    failedReport.setErrorReason("Audit failed: " + (e.getMessage() != null ? e.getMessage() : "Unexpected error during AI audit."));
+                    failedReport.setErrorReason(extractCleanErrorMessage(e));
                     reportRepository.save(failedReport);
                 }
             } catch (Exception inner) {
@@ -285,5 +285,18 @@ public class AuditOrchestrationService {
             MDC.remove("reportId");
             MDC.remove("correlationId");
         }
+    }
+
+    private String extractCleanErrorMessage(Throwable t) {
+        if (t == null) return "Unexpected error during AI compliance audit.";
+        Throwable cur = t;
+        while (cur != null) {
+            String msg = cur.getMessage();
+            if (msg != null && (msg.contains("429") || msg.toLowerCase().contains("quota exceeded") || msg.toLowerCase().contains("rate limit"))) {
+                return "Gemini AI free-tier rate limit (20 RPM) temporarily reached. Please wait 30 seconds and click 'Retry Audit'.";
+            }
+            cur = cur.getCause();
+        }
+        return "Audit failed: " + (t.getMessage() != null ? t.getMessage() : "Unexpected error during AI audit.");
     }
 }

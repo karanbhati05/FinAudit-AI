@@ -12,6 +12,12 @@ spring:
     virtual:
       enabled: true
   ai:
+    retry:
+      max-attempts: 5
+      backoff:
+        initial-interval: 3000ms
+        multiplier: 2.0
+        max-interval: 35000ms
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}

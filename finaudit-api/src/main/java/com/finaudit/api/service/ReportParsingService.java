@@ -167,7 +167,7 @@ public class ReportParsingService {
                 Report report = reportRepository.findById(reportId).orElse(null);
                 if (report != null) {
                     report.setStatus(ReportStatus.FAILED);
-                    report.setErrorReason(e.getMessage());
+                    report.setErrorReason(extractCleanErrorMessage(e));
                     reportRepository.save(report);
                 }
             } catch (Exception inner) {
@@ -179,5 +179,18 @@ public class ReportParsingService {
         }
 
         return CompletableFuture.completedFuture(null);
+    }
+
+    private String extractCleanErrorMessage(Throwable t) {
+        if (t == null) return "Unknown error during document parsing.";
+        Throwable cur = t;
+        while (cur != null) {
+            String msg = cur.getMessage();
+            if (msg != null && (msg.contains("429") || msg.toLowerCase().contains("quota exceeded") || msg.toLowerCase().contains("rate limit"))) {
+                return "Gemini AI free-tier rate limit (20 RPM) temporarily reached. Please wait 30 seconds and click 'Retry Audit'.";
+            }
+            cur = cur.getCause();
+        }
+        return t.getMessage() != null && !t.getMessage().isBlank() ? t.getMessage() : "Error communicating with AI parsing model.";
     }
 }
