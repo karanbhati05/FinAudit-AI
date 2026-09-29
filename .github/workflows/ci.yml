@@ -56,6 +56,7 @@ jobs:
 
       - name: Run Backend Tests & JaCoCo Coverage Gate
         env:
+          DB_PORT: 5432
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/finaudit
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
@@ -66,6 +67,7 @@ jobs:
       - name: Run Gemini Integration Tests (Nightly / Manual Dispatch Only)
         if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_integration_tests == true) }}
         env:
+          DB_PORT: 5432
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/finaudit
           SPRING_DATASOURCE_USERNAME: postgres
           SPRING_DATASOURCE_PASSWORD: postgres
