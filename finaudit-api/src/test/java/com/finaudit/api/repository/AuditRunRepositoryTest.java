@@ -15,11 +15,18 @@ class AuditRunRepositoryTest extends BaseRepositoryTest {
     @Autowired
     private AuditRunRepository auditRunRepository;
 
+    @Autowired
+    private ReportRepository reportRepository;
+
     @Test
     @DisplayName("Should save and query audit runs by reportId")
     void shouldSaveAndQueryAuditRun() {
+        com.finaudit.api.entity.Report report = reportRepository.save(
+                new com.finaudit.api.entity.Report(1L, "test_run.pdf", "storage/test_run.pdf")
+        );
+
         AuditRun run = new AuditRun(
-                10L,
+                report.getId(),
                 82,
                 RiskLevel.MEDIUM,
                 "{\"summary\": \"Audit completed with 1 finding\"}"
@@ -28,7 +35,7 @@ class AuditRunRepositoryTest extends BaseRepositoryTest {
 
         assertThat(saved.getId()).isNotNull();
 
-        Optional<AuditRun> found = auditRunRepository.findByReportId(10L);
+        Optional<AuditRun> found = auditRunRepository.findByReportId(report.getId());
         assertThat(found).isPresent();
         assertThat(found.get().getComplianceScore()).isEqualTo(82);
         assertThat(found.get().getRiskLevel()).isEqualTo(RiskLevel.MEDIUM);
