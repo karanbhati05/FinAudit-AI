@@ -33,6 +33,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       JWT_SECRET: ${JWT_SECRET:-9a7f5c2d4e8b1a3f6c9e2d5b8a1f4c7e0d3b6a9f2e5c8b1a4d7f0e3c6b9a2d5e}
       SPRING_PROFILES_ACTIVE: prod
     depends_on:

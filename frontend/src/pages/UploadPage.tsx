@@ -360,7 +360,7 @@ Line Items:
                     <span className="font-semibold">{auditStatus.lineItemCount}</span> line items successfully extracted from invoice.
                   </span>
                 </div>
-                <span className="text-caption font-mono text-secondary">Gemini 2.5 Flash</span>
+                <span className="text-caption font-mono text-secondary">Gemini 3.5 Flash Lite</span>
               </div>
             )}
 

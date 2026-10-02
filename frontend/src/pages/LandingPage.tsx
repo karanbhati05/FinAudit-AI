@@ -282,7 +282,7 @@ export const LandingPage: React.FC = () => {
                   <span className="text-body font-semibold text-primary">Model & Ingestion</span>
                 </div>
                 <p className="text-caption text-secondary font-mono">
-                  Gemini 2.5 Flash • gemini-embedding-001 • Apache PDFBox 3.0.4
+                  Gemini 3.5 Flash Lite • gemini-embedding-001 • Apache PDFBox 3.0.4
                 </p>
               </Card>
 

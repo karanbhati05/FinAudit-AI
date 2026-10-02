@@ -13,7 +13,7 @@ export const Footer: React.FC = () => {
           </span>
         </div>
         <div className="text-caption text-muted flex items-center gap-6">
-          <span>Spring AI + Gemini 2.5 + pgvector</span>
+          <span>Spring AI + Gemini 3.5 Flash Lite + pgvector</span>
           <span>&copy; {new Date().getFullYear()} FinAudit Labs</span>
         </div>
       </div>

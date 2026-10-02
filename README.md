@@ -4,12 +4,12 @@
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4.3-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.0.0--M6-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
-[![Google Gemini](https://img.shields.io/badge/Gemini-2.5%20%7C%203.8%20Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
+[![Google Gemini](https://img.shields.io/badge/Gemini-3.5%20Flash%20Lite-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20%2B%20pgvector-336791?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
 [![React 19](https://img.shields.io/badge/React-19%20%2B%20Vite%20%2B%20TS-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**FinAudit-AI** is an autonomous enterprise financial compliance copilot. It audits 100% of corporate expense claims, travel vouchers, and vendor invoices against compliance handbooks with zero tolerance for drift. By pairing **Spring AI** and **Google Gemini Flash** with **pgvector** semantic similarity and **deterministic SQL tool calling**, it surfaces invoice duplicates, per-diem violations, and flight class infractions with verbatim policy clause citations and provides a grounded interactive conversational assistant.
+**FinAudit-AI** is an autonomous enterprise financial compliance copilot. It audits 100% of corporate expense claims, travel vouchers, and vendor invoices against compliance handbooks with zero tolerance for drift. By pairing **Spring AI** and **Google Gemini 3.5 Flash Lite** with **pgvector** semantic similarity and **deterministic SQL tool calling**, it surfaces invoice duplicates, per-diem violations, and flight class infractions with verbatim policy clause citations and provides a grounded interactive conversational assistant.
 
 ---
 
@@ -85,7 +85,7 @@
 | Domain | Technologies |
 |---|---|
 | **Backend Core** | Java 21 LTS, Spring Boot 3.4.3, Spring AI (1.0.0-M6), Project Lombok, Virtual Threads |
-| **AI Models** | Google Gemini (Structured JSON Inference & Chat), `gemini-embedding-001` (768-dim embeddings) |
+| **AI Models** | Google Gemini 3.5 Flash Lite (Structured Extraction & Grounded Chat), `gemini-embedding-001` (768-dim embeddings) |
 | **Database & Search** | PostgreSQL 16, `pgvector` (HNSW Cosine Indexing), Flyway Migrations |
 | **Security & Auth** | Stateless JWT (JJWT 0.12.6), Spring Security, Role-Based Access Control (`AUDITOR`, `VIEWER`) |
 | **Document Processing** | Apache PDFBox, Multipart Streaming, Magic-byte MIME validation |
@@ -200,7 +200,7 @@ sequenceDiagram
     participant Guard as CostGuardrailService
     participant Parser as ReportParsingService
     participant Orchestrator as AuditOrchestrationService
-    participant Gemini as Google Gemini
+    participant Gemini as Google Gemini 3.5 Flash Lite
     participant Tool as DuplicateInvoiceTool
     participant DB as Postgres + pgvector
 
