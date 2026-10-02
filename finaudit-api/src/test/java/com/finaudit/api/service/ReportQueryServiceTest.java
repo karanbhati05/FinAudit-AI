@@ -106,10 +106,18 @@ class ReportQueryServiceTest {
         ReportDetailResponse detail = detailOpt.get();
         assertThat(detail.id()).isEqualTo(10L);
         assertThat(detail.findings()).hasSize(1);
+        assertThat(detail.totalLineItemCount()).isEqualTo(1);
+        assertThat(detail.flaggedLineItemCount()).isEqualTo(1);
+        assertThat(detail.totalSpend()).isEqualByComparingTo(new BigDecimal("1500.00"));
+        assertThat(detail.totalFlaggedAmount()).isEqualByComparingTo(new BigDecimal("1500.00"));
+        assertThat(detail.flaggedSummary()).isEqualTo("1 of 1 line items flagged, $1,500.00 total flagged amount");
+        assertThat(detail.categorySpend()).hasSize(1);
+        assertThat(detail.categorySpend().get(0).category()).isEqualTo("TRAVEL");
 
         ResolvedFindingResponse resolvedFinding = detail.findings().get(0);
         assertThat(resolvedFinding.policyTitle()).isEqualTo("Clause 4.2: Flight Booking Standards");
         assertThat(resolvedFinding.policyBodyText()).isEqualTo("Economy required for domestic flights.");
+        assertThat(resolvedFinding.isHeuristic()).isFalse();
     }
 
     @Test

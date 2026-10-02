@@ -83,6 +83,48 @@ class DomainModelTest {
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.lineItems()).isEmpty();
         assertThat(response.findings()).isEmpty();
+        assertThat(response.totalLineItemCount()).isEqualTo(0);
+        assertThat(response.flaggedLineItemCount()).isEqualTo(0);
+        assertThat(response.totalSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.totalFlaggedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.flaggedSummary()).isEqualTo("0 of 0 line items flagged, $0.00 total flagged amount");
+        assertThat(response.categorySpend()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("ReportDetailResponse should compute deterministic aggregations accurately")
+    void shouldComputeDeterministicAggregations() {
+        ReportLineItemDto item1 = new ReportLineItemDto(10L, "INV-1", "Vendor A", new BigDecimal("150.00"), "USD", "Travel", "Flight", 1);
+        ReportLineItemDto item2 = new ReportLineItemDto(20L, "INV-2", "Vendor B", new BigDecimal("350.00"), "USD", "Travel", "Hotel", 2);
+        ReportLineItemDto item3 = new ReportLineItemDto(30L, "INV-3", "Vendor C", new BigDecimal("500.00"), "USD", "Software", "SaaS", 3);
+
+        ResolvedFindingResponse finding1 = new ResolvedFindingResponse(
+                1L, 20L, RuleSource.SEMANTIC, FindingSeverity.HIGH, "Over budget",
+                "Policy 4.1", "Travel Cap", "Max $200", Instant.now()
+        );
+        ResolvedFindingResponse finding2 = new ResolvedFindingResponse(
+                2L, null, RuleSource.SEMANTIC, FindingSeverity.LOW, "Heuristic warning",
+                null, null, null, Instant.now()
+        );
+
+        ReportDetailResponse response = new ReportDetailResponse(
+                1L, 100L, "report.pdf", "path", ReportStatus.COMPLETE,
+                Instant.now(), Instant.now(), null, 85, RiskLevel.MEDIUM,
+                "Summary", List.of(item1, item2, item3), List.of(finding1, finding2)
+        );
+
+        assertThat(response.totalLineItemCount()).isEqualTo(3);
+        assertThat(response.flaggedLineItemCount()).isEqualTo(1);
+        assertThat(response.totalSpend()).isEqualByComparingTo(new BigDecimal("1000.00"));
+        assertThat(response.totalFlaggedAmount()).isEqualByComparingTo(new BigDecimal("350.00"));
+        assertThat(response.flaggedSummary()).isEqualTo("1 of 3 line items flagged, $350.00 total flagged amount");
+        assertThat(response.categorySpend()).hasSize(2);
+        assertThat(response.categorySpend().get(0).category()).isEqualTo("Travel");
+        assertThat(response.categorySpend().get(0).amount()).isEqualByComparingTo(new BigDecimal("500.00"));
+        assertThat(response.categorySpend().get(0).percentage()).isEqualTo(50.0);
+
+        assertThat(finding1.isHeuristic()).isFalse();
+        assertThat(finding2.isHeuristic()).isTrue();
     }
 
     @Test
