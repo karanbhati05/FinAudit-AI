@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
+import { ReportScopedChat } from '../components/report/ReportScopedChat';
 import {
   ArrowLeft,
   AlertTriangle,
@@ -824,6 +825,9 @@ export const ReportDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SCOPED REPORT Q&A CHAT */}
+      <ReportScopedChat report={activeReport} />
 
       {/* 2. VISUAL SPEND BREAKDOWN CHARTS (RECHARTS) */}
       <div className="mb-10">

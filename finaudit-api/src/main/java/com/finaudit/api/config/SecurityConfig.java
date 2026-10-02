@@ -103,7 +103,7 @@ public class SecurityConfig {
                 "https://*.netlify.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-Session-Id"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -128,6 +128,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/health", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/reports/public/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/reports/*/ask").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/**").permitAll()
 
                         // Role-based restrictions

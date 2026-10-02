@@ -41,6 +41,7 @@ import org.slf4j.MDC;
 
 import com.finaudit.api.service.AuditReportPdfService;
 import com.finaudit.api.service.ShareTokenService;
+import com.finaudit.api.service.ReportAskService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 
@@ -61,6 +62,7 @@ public class ReportController {
     private final CostGuardrailService costGuardrailService;
     private final AuditReportPdfService auditReportPdfService;
     private final ShareTokenService shareTokenService;
+    private final ReportAskService reportAskService;
     private final String frontendBaseUrl;
 
     public ReportController(
@@ -74,6 +76,7 @@ public class ReportController {
             CostGuardrailService costGuardrailService,
             AuditReportPdfService auditReportPdfService,
             ShareTokenService shareTokenService,
+            ReportAskService reportAskService,
             @Value("${finaudit.share.frontend-url:https://finaudit-ai.vercel.app}") String frontendBaseUrl
     ) {
         this.reportRepository = reportRepository;
@@ -86,6 +89,7 @@ public class ReportController {
         this.costGuardrailService = costGuardrailService;
         this.auditReportPdfService = auditReportPdfService;
         this.shareTokenService = shareTokenService;
+        this.reportAskService = reportAskService;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -325,5 +329,22 @@ public class ReportController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finaudit-report-" + reportId + ".pdf\"")
                 .body(pdfBytes);
+    }
+
+    @PostMapping("/{id}/ask")
+    @Operation(summary = "Scoped report Q&A", description = "Asks a narrowly scoped question grounded exclusively in the report line items, findings, and cited policies")
+    public ResponseEntity<AskResponse> askReportQuestion(
+            @PathVariable("id") Long id,
+            @RequestBody AskRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
+        String sessionId = httpRequest.getHeader("X-Session-Id");
+        if (sessionId == null || sessionId.isBlank()) {
+            jakarta.servlet.http.HttpSession session = httpRequest.getSession(false);
+            sessionId = session != null ? session.getId() : httpRequest.getRemoteAddr();
+        }
+
+        AskResponse response = reportAskService.askQuestion(id, request.question(), sessionId);
+        return ResponseEntity.ok(response);
     }
 }

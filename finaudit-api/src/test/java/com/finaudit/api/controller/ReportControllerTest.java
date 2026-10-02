@@ -27,8 +27,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ReportController.class)
@@ -67,6 +70,9 @@ class ReportControllerTest {
 
     @MockitoBean
     private com.finaudit.api.service.ShareTokenService shareTokenService;
+
+    @MockitoBean
+    private com.finaudit.api.service.ReportAskService reportAskService;
 
     @Test
     @DisplayName("GET /api/reports should handle pagination edge case: empty result")
@@ -207,5 +213,39 @@ class ReportControllerTest {
         mockMvc.perform(get("/api/reports/public/share/expired-token"))
                 .andExpect(status().isGone())
                 .andExpect(jsonPath("$.error").value("Share Link Expired"));
+    }
+
+    @Test
+    @DisplayName("POST /api/reports/{id}/ask should return grounded Q&A response")
+    void shouldReturnGroundedAskResponse() throws Exception {
+        AskResponse mockResp = new AskResponse("Your total flagged amount is $2,510.00.", true, "LINE_ITEM");
+        when(reportAskService.askQuestion(eq(10L), eq("What's my total flagged amount?"), anyString()))
+                .thenReturn(mockResp);
+
+        mockMvc.perform(post("/api/reports/10/ask")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Session-Id", "sess-test-123")
+                        .content("{\"question\":\"What's my total flagged amount?\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.grounded").value(true))
+                .andExpect(jsonPath("$.answer").value("Your total flagged amount is $2,510.00."))
+                .andExpect(jsonPath("$.sourceType").value("LINE_ITEM"));
+    }
+
+    @Test
+    @DisplayName("POST /api/reports/{id}/ask should return ungrounded refusal response for out of scope query")
+    void shouldReturnUngroundedRefusalForOutOfScope() throws Exception {
+        AskResponse refusal = AskResponse.ungrounded();
+        when(reportAskService.askQuestion(eq(10L), eq("What's the weather today?"), anyString()))
+                .thenReturn(refusal);
+
+        mockMvc.perform(post("/api/reports/10/ask")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Session-Id", "sess-test-123")
+                        .content("{\"question\":\"What's the weather today?\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.grounded").value(false))
+                .andExpect(jsonPath("$.sourceType").value("NONE"))
+                .andExpect(jsonPath("$.answer").value("That's not something I can answer from this report's data."));
     }
 }

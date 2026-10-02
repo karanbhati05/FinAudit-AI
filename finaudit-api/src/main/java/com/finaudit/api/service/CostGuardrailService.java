@@ -36,6 +36,8 @@ public class CostGuardrailService {
     public static final int DEFAULT_MAX_UPLOADS_PER_IP_DAILY = 10;
     public static final int DEFAULT_MAX_CONCURRENT_AUDITS = 2;
     public static final int DEFAULT_MAX_DAILY_GEMINI_CALLS = 100;
+    public static final int MAX_QUESTIONS_PER_REPORT_DAILY = 10;
+    public static final int MAX_QUESTIONS_PER_SESSION = 5;
     public static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
     private final int maxUploadsPerUser;
@@ -45,6 +47,8 @@ public class CostGuardrailService {
 
     private final Map<String, AtomicInteger> userUploadCounts = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> ipUploadCounts = new ConcurrentHashMap<>();
+    private final Map<Long, AtomicInteger> reportQuestionCountsDaily = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> sessionQuestionCounts = new ConcurrentHashMap<>();
     private final AtomicInteger dailyGeminiCallCount = new AtomicInteger(0);
 
     public CostGuardrailService(
@@ -199,13 +203,84 @@ public class CostGuardrailService {
     }
 
     /**
+     * Enforces circuit breaker and question rate limits:
+     * - Circuit breaker (daily Gemini quota)
+     * - Per-report cap (10 questions/report/day)
+     * - Per-session cap (5 questions per visitor session)
+     */
+    public void enforceQuestionRateLimits(Long reportId, String sessionId) {
+        long secondsUntilMidnight = getSecondsUntilMidnightUtc();
+
+        // 1. Fold into Circuit Breaker
+        if (dailyGeminiCallCount.get() >= maxDailyGeminiCalls) {
+            log.warn("Circuit breaker OPEN for report Q&A: Daily quota reached ({}/{})", dailyGeminiCallCount.get(), maxDailyGeminiCalls);
+            throw new CircuitBreakerOpenException(
+                    "The public demo has reached its daily AI quota (" + maxDailyGeminiCalls + " calls/day). " +
+                            "Further AI queries are paused until midnight UTC.",
+                    secondsUntilMidnight
+            );
+        }
+
+        // 2. Per-report cap (10 questions/report/day)
+        if (reportId != null) {
+            AtomicInteger reportCounter = reportQuestionCountsDaily.computeIfAbsent(reportId, k -> new AtomicInteger(0));
+            if (reportCounter.get() >= MAX_QUESTIONS_PER_REPORT_DAILY) {
+                log.warn("Report question rate limit reached for report ID: {} (count: {})", reportId, reportCounter.get());
+                throw new RateLimitExceededException(
+                        "Daily question limit reached for this report (maximum " + MAX_QUESTIONS_PER_REPORT_DAILY + " questions per report per day).",
+                        secondsUntilMidnight
+                );
+            }
+        }
+
+        // 3. Per-session cap (5 questions per visitor session)
+        if (sessionId != null && !sessionId.isBlank()) {
+            AtomicInteger sessionCounter = sessionQuestionCounts.computeIfAbsent(sessionId, k -> new AtomicInteger(0));
+            if (sessionCounter.get() >= MAX_QUESTIONS_PER_SESSION) {
+                log.warn("Session question rate limit reached for session: {} (count: {})", sessionId, sessionCounter.get());
+                throw new RateLimitExceededException(
+                        "Session question limit reached (maximum " + MAX_QUESTIONS_PER_SESSION + " questions per visitor session).",
+                        secondsUntilMidnight
+                );
+            }
+        }
+    }
+
+    /**
+     * Records a question asked for a report and session, incrementing the daily Gemini call count.
+     */
+    public void recordQuestion(Long reportId, String sessionId) {
+        recordGeminiCall();
+        if (reportId != null) {
+            reportQuestionCountsDaily.computeIfAbsent(reportId, k -> new AtomicInteger(0)).incrementAndGet();
+        }
+        if (sessionId != null && !sessionId.isBlank()) {
+            sessionQuestionCounts.computeIfAbsent(sessionId, k -> new AtomicInteger(0)).incrementAndGet();
+        }
+    }
+
+    public int getReportQuestionCount(Long reportId) {
+        if (reportId == null) return 0;
+        AtomicInteger counter = reportQuestionCountsDaily.get(reportId);
+        return counter != null ? counter.get() : 0;
+    }
+
+    public int getSessionQuestionCount(String sessionId) {
+        if (sessionId == null) return 0;
+        AtomicInteger counter = sessionQuestionCounts.get(sessionId);
+        return counter != null ? counter.get() : 0;
+    }
+
+    /**
      * Scheduled reset at midnight UTC every day.
      */
     @Scheduled(cron = "0 0 0 * * *", zone = "UTC")
     public void resetDailyLimits() {
-        log.info("Resetting daily upload counts and Gemini call quota at midnight UTC.");
+        log.info("Resetting daily upload counts, question limits, and Gemini call quota at midnight UTC.");
         userUploadCounts.clear();
         ipUploadCounts.clear();
+        reportQuestionCountsDaily.clear();
+        sessionQuestionCounts.clear();
         dailyGeminiCallCount.set(0);
     }
 
