@@ -1,9 +1,31 @@
 import { api } from './api';
 import { queryClient } from '../queryClient';
 
+export type DateRange = '7d' | '30d' | '90d' | 'all';
+
+export interface SpendRiskTrendPoint {
+  label: string;
+  date: string;
+  totalSpend: number;
+  lowRisk: number;
+  mediumRisk: number;
+  highRisk: number;
+  reportCount: number;
+}
+
+export interface ScoreDistributionBucket {
+  rangeLabel: string;
+  minScore: number;
+  maxScore: number;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
 export interface DashboardSummary {
   totalReportsAudited: number;
   averageComplianceScore: number;
+  totalSpendAudited?: number;
   countByRiskLevel: {
     LOW?: number;
     MEDIUM?: number;
@@ -14,6 +36,9 @@ export interface DashboardSummary {
     policyReference: string;
     count: number;
   }>;
+  spendAndRiskTrend?: SpendRiskTrendPoint[];
+  complianceScoreDistribution?: ScoreDistributionBucket[];
+  dateRange?: string;
 }
 
 export interface ReportSummary {
@@ -35,20 +60,42 @@ export interface PageResponse<T> {
   size: number;
 }
 
+// Fallback demo summary matching the 4 seeded enterprise reports
 export const DEMO_SUMMARY: DashboardSummary = {
-  totalReportsAudited: 14,
-  averageComplianceScore: 82.4,
+  totalReportsAudited: 4,
+  averageComplianceScore: 65.3,
+  totalSpendAudited: 74765.0,
   countByRiskLevel: {
-    LOW: 8,
-    MEDIUM: 4,
+    LOW: 1,
+    MEDIUM: 1,
     HIGH: 2,
   },
   topViolations: [
-    { policyReference: 'Clause 4.2: Flight Booking Standards', count: 6 },
-    { policyReference: 'Clause 7.1: Per-Diem Meal Caps', count: 4 },
-    { policyReference: 'Clause 9.3: Missing Tax Itemization', count: 3 },
-    { policyReference: 'Clause 2.0: Duplicate Invoice Submission', count: 2 },
+    { policyReference: 'Corporate Travel Policy - Section 4.1: Air Travel Class Restrictions', count: 3 },
+    { policyReference: 'Anti-Fraud & Invoice Verification - Section 1.1: Duplicate Invoicing Trigger', count: 2 },
+    { policyReference: 'Procurement & Approval Matrix - Section 6.2: Dual Sign-off Requirements', count: 2 },
+    { policyReference: 'Corporate Dining & Entertainment - Section 2.3: Per Diem Caps & Alcohol Limitations', count: 2 },
+    { policyReference: 'Corporate Entertainment Standards - Section 5.4: Luxury Hospitality Authorizations', count: 1 },
+    { policyReference: 'Business Expense Substantiation - Section 2.1: Non-Operating Weekend Hours', count: 1 },
+    { policyReference: 'Software Licensing & IT Assets - Section 3.1: Developer Tool Pack Approvals', count: 1 },
   ],
+  spendAndRiskTrend: [
+    { label: 'Sep 27', date: '2026-09-27', totalSpend: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0, reportCount: 0 },
+    { label: 'Sep 28', date: '2026-09-28', totalSpend: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0, reportCount: 0 },
+    { label: 'Sep 29', date: '2026-09-29', totalSpend: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0, reportCount: 0 },
+    { label: 'Sep 30', date: '2026-09-30', totalSpend: 0, lowRisk: 0, mediumRisk: 0, highRisk: 0, reportCount: 0 },
+    { label: 'Oct 1', date: '2026-10-01', totalSpend: 8470.0, lowRisk: 0, mediumRisk: 0, highRisk: 1, reportCount: 1 },
+    { label: 'Oct 2', date: '2026-10-02', totalSpend: 12900.0, lowRisk: 1, mediumRisk: 0, highRisk: 0, reportCount: 1 },
+    { label: 'Oct 3', date: '2026-10-03', totalSpend: 53395.0, lowRisk: 0, mediumRisk: 1, highRisk: 1, reportCount: 2 },
+  ],
+  complianceScoreDistribution: [
+    { rangeLabel: '0–49', minScore: 0, maxScore: 49, count: 1, percentage: 25.0, color: '#ef4444' },
+    { rangeLabel: '50–69', minScore: 50, maxScore: 69, count: 1, percentage: 25.0, color: '#f97316' },
+    { rangeLabel: '70–79', minScore: 70, maxScore: 79, count: 1, percentage: 25.0, color: '#f59e0b' },
+    { rangeLabel: '80–89', minScore: 80, maxScore: 89, count: 0, percentage: 0.0, color: '#06b6d4' },
+    { rangeLabel: '90–100', minScore: 90, maxScore: 100, count: 1, percentage: 25.0, color: '#10b981' },
+  ],
+  dateRange: '30d',
 };
 
 export const DEMO_REPORTS: ReportSummary[] = [
@@ -90,14 +137,14 @@ export const DEMO_REPORTS: ReportSummary[] = [
   },
 ];
 
-export const fetchDashboardSummary = async (): Promise<DashboardSummary> => {
+export const fetchDashboardSummary = async (range: DateRange = '30d'): Promise<DashboardSummary> => {
   try {
-    const res = await api.get<DashboardSummary>('/dashboard/summary');
+    const res = await api.get<DashboardSummary>(`/dashboard/summary?range=${range}`);
     if (res.data) return res.data;
   } catch (err) {
-    console.warn('Backend summary unavailable, using fallback', err);
+    console.warn(`Backend summary for range ${range} unavailable, using fallback`, err);
   }
-  return DEMO_SUMMARY;
+  return { ...DEMO_SUMMARY, dateRange: range };
 };
 
 export const fetchReportsList = async (): Promise<ReportSummary[]> => {
@@ -120,14 +167,14 @@ export const fetchReportsList = async (): Promise<ReportSummary[]> => {
 export const prefetchDashboardData = async (): Promise<void> => {
   await Promise.allSettled([
     queryClient.prefetchQuery({
-      queryKey: ['dashboardSummary'],
-      queryFn: fetchDashboardSummary,
-      staleTime: 1000 * 60 * 2,
+      queryKey: ['dashboardSummary', '30d'],
+      queryFn: () => fetchDashboardSummary('30d'),
+      staleTime: 1000 * 60 * 5,
     }),
     queryClient.prefetchQuery({
       queryKey: ['reportsList'],
       queryFn: fetchReportsList,
-      staleTime: 1000 * 60 * 2,
+      staleTime: 1000 * 60 * 5,
     }),
   ]);
 };

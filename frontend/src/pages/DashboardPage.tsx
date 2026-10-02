@@ -12,23 +12,25 @@ import {
   DEMO_SUMMARY,
   DEMO_REPORTS,
 } from '../services/dashboardService';
-import type { ReportSummary } from '../services/dashboardService';
+import type { ReportSummary, DateRange } from '../services/dashboardService';
 import {
   FileText,
   UploadCloud,
   TrendingUp,
-  AlertTriangle,
   RefreshCw,
   ExternalLink,
   ShieldCheck,
   Sparkles,
   Filter,
+  DollarSign,
+  Calendar,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AnimatedNumber } from '../components/ui/AnimatedNumber';
 import { AUDIT_EASE } from '../utils/motion';
-
-const AuditRiskChart = React.lazy(() => import('../components/dashboard/AuditRiskChart'));
+import { SpendRiskTrendChart } from '../components/dashboard/SpendRiskTrendChart';
+import { PolicyLeaderboard } from '../components/dashboard/PolicyLeaderboard';
+import { ComplianceScoreHistogram } from '../components/dashboard/ComplianceScoreHistogram';
 
 const statGridVariants = {
   hidden: { opacity: 0 },
@@ -139,22 +141,22 @@ const VirtualReportRow = React.memo<VirtualRowProps>(({ report, style }) => {
 });
 VirtualReportRow.displayName = 'VirtualReportRow';
 
-
-
 export const DashboardPage: React.FC = () => {
   const queryClient = useQueryClient();
   const shouldReduceMotion = useReducedMotion();
+  const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [filterRisk, setFilterRisk] = useState<string>('ALL');
 
-  // React Query for summary
+  // React Query for summary with per-range key caching
   const {
     data: summary = DEMO_SUMMARY,
     isLoading: isLoadingSummary,
     isFetching: isFetchingSummary,
     refetch: refetchSummary,
   } = useQuery({
-    queryKey: ['dashboardSummary'],
-    queryFn: fetchDashboardSummary,
+    queryKey: ['dashboardSummary', dateRange],
+    queryFn: () => fetchDashboardSummary(dateRange),
+    staleTime: 1000 * 60 * 5, // 5 min cache per range so switching ranges is instantaneous
   });
 
   // React Query for reports
@@ -166,6 +168,7 @@ export const DashboardPage: React.FC = () => {
   } = useQuery({
     queryKey: ['reportsList'],
     queryFn: fetchReportsList,
+    staleTime: 1000 * 60 * 5,
   });
 
   const isRefreshing = isFetchingSummary || isFetchingReports;
@@ -197,18 +200,53 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
-      {/* Dashboard Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+      {/* Dashboard Top Header & Range Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 pb-6 border-b border-subtle">
         <div>
           <span className="text-caption font-mono uppercase tracking-widest text-accent font-semibold">
-            Audit Intelligence & Aggregations
+            Enterprise Financial Compliance Intelligence
           </span>
-          <h1 className="text-headline font-bold text-primary mt-1">Audit Operations Dashboard</h1>
+          <h1 className="text-headline font-bold text-primary mt-1">Audit Operations Portfolio</h1>
           <p className="text-body text-secondary mt-1">
-            Real-time compliance monitoring, risk distribution, and virtualized report ledger.
+            Real-time compliance surveillance, risk distribution, spend analytics, and governing policy leaderboards.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        {/* Action Controls & Date Range Filter */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* 4. DATE-RANGE FILTER PILLS */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-subtle border border-subtle">
+            <span className="text-[11px] font-mono uppercase text-muted px-2 hidden sm:inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Range:
+            </span>
+            {(['7d', '30d', '90d', 'all'] as const).map((range) => {
+              const label =
+                range === '7d'
+                  ? '7 Days'
+                  : range === '30d'
+                  ? '30 Days'
+                  : range === '90d'
+                  ? '90 Days'
+                  : 'All Time';
+              const isActive = dateRange === range;
+              return (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setDateRange(range)}
+                  className={`px-3 py-1.5 rounded-lg text-caption font-medium transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-accent text-white shadow-xs font-semibold'
+                      : 'text-secondary hover:text-primary hover:bg-surface'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
           <Button
             variant="secondary"
             size="md"
@@ -218,6 +256,7 @@ export const DashboardPage: React.FC = () => {
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-accent' : ''}`} />
           </Button>
+
           <Link to="/upload">
             <Button variant="primary" size="md">
               <UploadCloud className="h-4 w-4 mr-2" />
@@ -244,14 +283,31 @@ export const DashboardPage: React.FC = () => {
           {/* Card 1: Total Reports Audited */}
           <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
             <StatCard
-              title="Total Audited"
+              title="Reports Audited"
               icon={<FileText className="h-4 w-4 text-accent" />}
               value={<AnimatedNumber value={summary.totalReportsAudited} />}
-              subtitle="Processed financial statements"
+              subtitle="Processed corporate filings"
             />
           </motion.div>
 
-          {/* Card 2: Average Compliance Score */}
+          {/* Card 2: Total Spend Audited */}
+          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
+            <StatCard
+              title="Total Spend Audited"
+              icon={<DollarSign className="h-4 w-4 text-emerald-500" />}
+              value={
+                <span className="font-mono">
+                  ${(summary.totalSpendAudited || 0).toLocaleString('en-US', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}
+                </span>
+              }
+              subtitle="Aggregated line item expenditure"
+            />
+          </motion.div>
+
+          {/* Card 3: Average Compliance Score */}
           <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
             <StatCard
               title="Avg Compliance"
@@ -263,11 +319,11 @@ export const DashboardPage: React.FC = () => {
                   suffix="%"
                 />
               }
-              subtitle="Across all corporate statements"
+              subtitle="Across selected date range"
             />
           </motion.div>
 
-          {/* Card 3: Risk Distribution */}
+          {/* Card 4: Risk Distribution */}
           <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
             <StatCard
               title="Risk Classification"
@@ -275,21 +331,21 @@ export const DashboardPage: React.FC = () => {
               value={
                 <div className="flex items-center gap-2">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-title font-bold text-red-500">
+                    <span className="text-title font-bold text-red-500 font-mono">
                       <AnimatedNumber value={summary.countByRiskLevel.HIGH || 0} />
                     </span>
                     <span className="text-caption text-muted">High</span>
                   </div>
                   <span className="text-muted">•</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-title font-bold text-accent">
+                    <span className="text-title font-bold text-accent font-mono">
                       <AnimatedNumber value={summary.countByRiskLevel.MEDIUM || 0} />
                     </span>
                     <span className="text-caption text-muted">Med</span>
                   </div>
                   <span className="text-muted">•</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-title font-bold text-secondary">
+                    <span className="text-title font-bold text-emerald-500 font-mono">
                       <AnimatedNumber value={summary.countByRiskLevel.LOW || 0} />
                     </span>
                     <span className="text-caption text-muted">Low</span>
@@ -299,86 +355,40 @@ export const DashboardPage: React.FC = () => {
               subtitle="Breakdown by report severity"
             />
           </motion.div>
-
-          {/* Card 4: Top Policy Violation */}
-          <motion.div variants={shouldReduceMotion ? undefined : statItemVariants}>
-            <StatCard
-              title="Top Violation"
-              icon={<AlertTriangle className="h-4 w-4 text-accent" />}
-              value={
-                <span className="truncate block" title={summary.topViolations[0]?.policyReference || 'None'}>
-                  {summary.topViolations[0]?.policyReference || 'Zero Violations'}
-                </span>
-              }
-              subtitle={`${summary.topViolations[0]?.count || 0} occurrences flagged`}
-            />
-          </motion.div>
         </motion.div>
       )}
 
-      {/* Analytics & Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-        <React.Suspense
-          fallback={
-            <Card padding="lg" className="lg:col-span-2 border-subtle bg-surface flex flex-col justify-center min-h-[320px]">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="h-5 w-48 bg-surface-subtle rounded animate-pulse" />
-                  <div className="h-3 w-32 bg-surface-subtle rounded animate-pulse mt-1" />
-                </div>
-              </div>
-              <div className="flex-1 flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
-              </div>
-            </Card>
-          }
-        >
-          <AuditRiskChart summary={summary} />
-        </React.Suspense>
+      {/* 1. SPEND & RISK TREND LINE (STACKED AREA + LINE COMPOSITION) */}
+      <div className="mb-10">
+        <SpendRiskTrendChart
+          data={summary.spendAndRiskTrend || []}
+          dateRange={dateRange}
+        />
+      </div>
 
-        {/* Top Violations List */}
-        <Card padding="lg" className="border-subtle bg-surface flex flex-col justify-between">
-          <div>
-            <h2 className="text-subhead font-semibold text-primary">
-              Frequent Policy Violations
-            </h2>
-            <p className="text-caption text-secondary mt-0.5 mb-6">
-              Most triggered RAG policy clauses
-            </p>
+      {/* 2 & 3. POLICY LEADERBOARD & COMPLIANCE SCORE HISTOGRAM */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12 items-stretch">
+        {/* Top Flagged Policies Leaderboard (7 Cols) */}
+        <div className="lg:col-span-7">
+          <PolicyLeaderboard violations={summary.topViolations || []} />
+        </div>
 
-            <div className="space-y-4">
-              {summary.topViolations.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 rounded-lg bg-surface-subtle border border-subtle/60"
-                >
-                  <span
-                    className="text-caption font-medium text-primary line-clamp-1 pr-2"
-                    title={item.policyReference}
-                  >
-                    {item.policyReference}
-                  </span>
-                  <span className="text-caption font-mono font-semibold px-2 py-0.5 rounded bg-accent/10 text-accent shrink-0">
-                    {item.count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-subtle text-caption text-secondary">
-            Grounded against corporate spending guidelines via pgvector RAG.
-          </div>
-        </Card>
+        {/* Compliance Score Distribution Histogram (5 Cols) */}
+        <div className="lg:col-span-5">
+          <ComplianceScoreHistogram
+            distribution={summary.complianceScoreDistribution || []}
+            totalReports={summary.totalReportsAudited}
+          />
+        </div>
       </div>
 
       {/* Recent Reports Table Section (Virtualized) */}
-      <Card padding="none" className="border-subtle bg-surface overflow-hidden">
+      <Card padding="none" className="border-subtle bg-surface overflow-hidden shadow-xs">
         <div className="p-6 border-b border-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-subhead font-semibold text-primary">Recent Expense Reports</h2>
-              <span className="px-2 py-0.5 rounded-full text-caption font-mono bg-accent/10 text-accent">
+              <span className="px-2 py-0.5 rounded-full text-caption font-mono bg-accent/10 text-accent font-semibold">
                 {filteredReports.length} {filteredReports.length === 1 ? 'Report' : 'Reports'}
               </span>
             </div>
