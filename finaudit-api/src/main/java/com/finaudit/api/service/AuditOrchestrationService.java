@@ -207,9 +207,6 @@ public class AuditOrchestrationService {
         String userPrompt = policyContextBuilder + "\n\n" + lineItemsBuilder + "\n\n" + duplicateCheckBuilder;
 
         log.debug("Sending audit prompt to ChatClient for report ID: {}", reportId);
-        if (duplicateInvoiceTool != null) {
-            duplicateInvoiceTool.setCurrentReportId(reportId);
-        }
 
         if (costGuardrailService != null) {
             costGuardrailService.tryAcquireAuditSlot();
