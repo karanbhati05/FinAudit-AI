@@ -48,6 +48,7 @@ public class ReportAskService {
     private final CostGuardrailService costGuardrailService;
     private final ChatClient chatClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ReportAskService(
             ReportRepository reportRepository,
             ReportLineItemRepository lineItemRepository,
