@@ -77,7 +77,7 @@ public class ReportController {
             AuditReportPdfService auditReportPdfService,
             ShareTokenService shareTokenService,
             ReportAskService reportAskService,
-            @Value("${finaudit.share.frontend-url:https://finaudit-ai.vercel.app}") String frontendBaseUrl
+            @Value("${finaudit.share.frontend-url:https://fin-audit-ai-xi.vercel.app}") String frontendBaseUrl
     ) {
         this.reportRepository = reportRepository;
         this.lineItemRepository = lineItemRepository;

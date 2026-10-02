@@ -17,7 +17,7 @@
 
 | Metric / Attribute | Verified Reality |
 |---|---|
-| **Live Web Application** | [https://finaudit-ai.vercel.app](https://finaudit-ai.vercel.app) *(1-Click Instant Demo, No Signup Required)* |
+| **Live Web Application** | [https://fin-audit-ai-xi.vercel.app](https://fin-audit-ai-xi.vercel.app) *(1-Click Instant Demo, No Signup Required)* |
 | **Backend API Health** | [https://finaudit-api-4yu2.onrender.com/actuator/health](https://finaudit-api-4yu2.onrender.com/actuator/health) *(Docker on Render)* |
 | **Interactive API Docs** | [https://finaudit-api-4yu2.onrender.com/swagger-ui.html](https://finaudit-api-4yu2.onrender.com/swagger-ui.html) |
 | **Automated Test Suite** | **91 automated tests passing** (87 in `finaudit-api`, 4 in `finaudit-core`, 0 failures) |
